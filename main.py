@@ -201,15 +201,16 @@ class KanjiKakeiApp(ctk.CTk):
             frame_height = 500
             
         img_width, img_height = pil_img.size
-        ratio = min(frame_width / img_width, frame_height / img_height)
+        # Subtract padding to ensure the image fits perfectly inside the frame
+        ratio = min((frame_width - 40) / img_width, (frame_height - 40) / img_height)
         
-        new_width = int(img_width * ratio * 0.9)
-        new_height = int(img_height * ratio * 0.9)
+        new_width = int(img_width * ratio)
+        new_height = int(img_height * ratio)
         
-        resized_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS)
-        
-        # Convert to Tkinter PhotoImage
-        ctk_img = ctk.CTkImage(light_image=resized_img, dark_image=resized_img, size=(new_width, new_height))
+        # Convert to Tkinter PhotoImage using the original image.
+        # CustomTkinter's CTkImage handles scaling natively based on Windows DPI scaling,
+        # preventing the image from looking cropped or zoomed on high-DPI displays.
+        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_width, new_height))
         
         self.image_label.configure(image=ctk_img, text="")
         self.image_label.image = ctk_img  # Keep reference
