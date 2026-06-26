@@ -129,7 +129,7 @@ class KanjiKakeiApp(ctk.CTk):
 
         self.right_header = ctk.CTkLabel(
             self.main_frame, 
-            text="AI Parser Ledger Output", 
+            text="Smart Read", 
             font=ctk.CTkFont(size=16, weight="bold")
         )
         self.right_header.grid(row=0, column=1, padx=10, pady=(0, 10))
