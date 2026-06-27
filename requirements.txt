@@ -1,8 +1,25 @@
-customtkinter>=5.2.0
-opencv-python>=4.8.0
-pillow>=10.0.0
-pandas>=2.0.0
-requests>=2.31.0
-groq>=0.4.0
+# Core runtime dependencies (inference: photo -> CSV + DB).
+# Pinned to versions current and Python 3.13 / Windows 11 compatible as of
+# mid-2026. SQLite is in the Python standard library (no package needed).
 
+# --- image processing -------------------------------------------------------
+numpy>=2.1,<3.0
+opencv-python>=4.11,<5.0          # use opencv-python-headless on servers
 
+# --- OCR (default engine) ---------------------------------------------------
+easyocr>=1.7.2                    # bundles pretrained JP+EN detector+recognizer
+# easyocr pulls in torch + torchvision automatically; if you want a specific
+# CUDA build, install torch first from https://pytorch.org then easyocr.
+
+# --- text normalization -----------------------------------------------------
+neologdn>=0.5.4                   # Japanese text normalization
+jaconv>=0.4.0                     # kana/width conversion
+# mojimoji and sudachipy are optional extras (see requirements-extra.txt)
+
+# --- categorization ---------------------------------------------------------
+sentence-transformers>=3.3,<5.0   # multilingual-e5 embeddings
+# transformers + torch come transitively with sentence-transformers.
+huggingface_hub[hf_xet]           # faster model downloads via Xet Storage
+
+# --- config -----------------------------------------------------------------
+pyyaml>=6.0.2

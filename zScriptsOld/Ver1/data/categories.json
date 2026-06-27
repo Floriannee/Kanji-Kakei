@@ -1,0 +1,23 @@
+{
+  "categories": [
+    {"id": "produce", "en": "Produce", "ja": "野菜・果物"},
+    {"id": "meat_seafood", "en": "Meat & Seafood", "ja": "肉・魚介類"},
+    {"id": "dairy_eggs", "en": "Dairy & Eggs", "ja": "乳製品・卵"},
+    {"id": "bread_bakery", "en": "Bread & Bakery", "ja": "パン"},
+    {"id": "frozen", "en": "Frozen Foods", "ja": "冷凍食品"},
+    {"id": "pantry", "en": "Pantry & Dry Goods", "ja": "米・乾物・調味料"},
+    {"id": "snacks", "en": "Snacks & Confectionery", "ja": "お菓子"},
+    {"id": "beverages", "en": "Beverages", "ja": "飲料"},
+    {"id": "alcohol", "en": "Alcohol", "ja": "酒類"},
+    {"id": "prepared_meals", "en": "Prepared / Ready-to-eat Meals", "ja": "惣菜"},
+    {"id": "household", "en": "Household Supplies", "ja": "日用品"},
+    {"id": "personal_care", "en": "Personal Care & Toiletries", "ja": "衛生用品・化粧品"},
+    {"id": "health", "en": "Health & Medicine", "ja": "医薬品"},
+    {"id": "baby", "en": "Baby Products", "ja": "ベビー用品"},
+    {"id": "pet", "en": "Pet Supplies", "ja": "ペット用品"},
+    {"id": "electronics", "en": "Electronics & Small Appliances", "ja": "家電"},
+    {"id": "clothing", "en": "Clothing", "ja": "衣料品"},
+    {"id": "stationery", "en": "Stationery & Office", "ja": "文房具"},
+    {"id": "other", "en": "Other / Uncategorized", "ja": "その他"}
+  ]
+}

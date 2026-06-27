@@ -1,0 +1,39 @@
+# Default configuration. Every value here mirrors a field in config/config.py.
+# Delete a key to fall back to the dataclass default. Environment variables
+# (RECEIPT_SEED, RECEIPT_LOG_LEVEL, RECEIPT_GPU) override these at load time.
+
+log_level: INFO
+
+detection:
+  gaussian_kernel: 5
+  canny_low: 75
+  canny_high: 200
+  min_area_ratio: 0.15
+  approx_epsilon_ratio: 0.02
+  fallback_model_path: null
+  output_max_side: 1600
+
+ocr:
+  engine: easyocr        # easyocr | paddleocr
+  languages: [ja, en]
+  gpu: false
+  recognizer_weights: null   # path to fine-tuned weights, or null for pretrained
+  recognizer_network: standard
+  min_confidence: 0.30
+
+training:
+  seed: 42
+  epochs: 30
+  batch_size: 32
+  lr: 0.0001
+  num_workers: 0
+  val_split: 0.1
+  early_stop_patience: 5
+  checkpoint_every: 1
+
+parse:
+  currency_symbols: ["¥", "円"]
+  embedding_model: intfloat/multilingual-e5-small
+  category_threshold: 0.55
+  use_bert_correction: false
+  bert_model: cl-tohoku/bert-base-japanese-v3

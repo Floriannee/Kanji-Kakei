@@ -1,0 +1,29 @@
+# Extra dependencies for training, dataset download, ONNX export, the optional
+# detector, BERT correction, and tests. Install on top of requirements.txt:
+#   pip install -r requirements.txt -r requirements-extra.txt
+
+# --- training ---------------------------------------------------------------
+torch>=2.5,<3.0                   # install the CUDA build from pytorch.org for GPU
+torchvision>=0.20,<1.0
+
+# --- datasets ---------------------------------------------------------------
+datasets>=3.2                     # downloads CORD from HuggingFace
+pillow>=11.0
+
+# --- optional learned detector ----------------------------------------------
+ultralytics>=8.3                  # YOLO fallback detector (train_detector.py)
+
+# --- ONNX export + runtime --------------------------------------------------
+onnx>=1.17
+onnxruntime>=1.20
+
+# --- optional Japanese NLP extras ------------------------------------------
+mojimoji>=0.0.13
+sudachipy>=0.6.9
+sudachidict-core>=20241021
+fugashi>=1.4                      # needed by cl-tohoku Japanese BERT tokenizer
+unidic-lite>=1.0.8
+
+# --- dev / test -------------------------------------------------------------
+pytest>=8.3
+pytest-cov>=6.0

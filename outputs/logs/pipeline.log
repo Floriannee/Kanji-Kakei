@@ -1,0 +1,85 @@
+2026-06-22 09:18:03 | WARNING | inference.clean | neologdn not installed; skipping that normalization step.
+2026-06-22 09:18:03 | WARNING | inference.clean | jaconv not installed; skipping kana width normalization.
+2026-06-22 09:18:03 | INFO    | inference.detect | Cropped receipt to 252x472
+2026-06-22 09:18:03 | WARNING | inference.detect | No receipt-shaped contour found; trying fallback.
+2026-06-22 09:18:03 | INFO    | inference.parse | Parsed 2 item lines (store='セブンイレブン')
+2026-06-22 09:18:03 | WARNING | inference.parse | Categorization disabled (No module named 'sentence_transformers'); items left uncategorized.
+2026-06-22 09:18:03 | INFO    | inference.parse | Parsed 0 item lines (store='ローソン')
+2026-06-22 09:18:03 | INFO    | inference.csv_writer | Wrote CSV /tmp/pytest-of-root/pytest-0/test_csv_columns_and_rows0/r.csv (2 rows)
+2026-06-22 09:18:03 | WARNING | inference.csv_writer | No items to write for /tmp/pytest-of-root/pytest-0/test_csv_empty_items0/empty.csv
+2026-06-22 09:18:03 | INFO    | inference.csv_writer | Wrote CSV /tmp/pytest-of-root/pytest-0/test_csv_empty_items0/empty.csv (0 rows)
+2026-06-22 09:18:03 | INFO    | database.db | Stored receipt id=1 with 2 items
+2026-06-23 16:38:18 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test1.png ===
+2026-06-23 16:38:18 | INFO    | inference.detect | Cropped receipt to 205x453
+2026-06-23 16:38:18 | INFO    | inference.ocr | Initializing OCR engine 'easyocr'
+2026-06-23 16:38:34 | WARNING | easyocr.easyocr | Using CPU. Note: This module is much faster with a GPU.
+2026-06-23 16:38:34 | WARNING | easyocr.easyocr | Downloading detection model, please wait. This may take several minutes depending upon your network connection.
+2026-06-23 16:39:19 | INFO    | easyocr.easyocr | Download complete
+2026-06-23 16:39:19 | WARNING | easyocr.easyocr | Downloading recognition model, please wait. This may take several minutes depending upon your network connection.
+2026-06-23 16:39:38 | INFO    | easyocr.easyocr | Download complete.
+2026-06-23 16:39:45 | INFO    | inference.ocr | OCR produced 2 lines
+2026-06-23 16:39:45 | INFO    | inference.parse | Parsed 0 item lines (store='領収証')
+2026-06-23 16:39:45 | WARNING | inference.csv_writer | No items to write for C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test1.csv
+2026-06-23 16:39:45 | INFO    | inference.csv_writer | Wrote CSV C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test1.csv (0 rows)
+2026-06-23 16:39:45 | INFO    | database.db | Stored receipt id=1 with 0 items
+2026-06-23 16:39:45 | INFO    | inference.pipeline | === Done C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test1.png -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test1.csv ===
+2026-06-23 16:39:45 | INFO    | __main__ | OK -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test1.csv
+2026-06-23 16:45:21 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test2.jpg ===
+2026-06-23 16:45:21 | WARNING | inference.detect | No receipt-shaped contour found; trying fallback.
+2026-06-23 16:45:21 | ERROR   | inference.pipeline | C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test2.jpg failed: ReceiptNotFoundError: No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 16:45:21 | ERROR   | __main__ | FAILED (ReceiptNotFoundError): No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 16:46:52 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test3.jpg ===
+2026-06-23 16:46:52 | WARNING | inference.detect | No receipt-shaped contour found; trying fallback.
+2026-06-23 16:46:52 | ERROR   | inference.pipeline | C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test3.jpg failed: ReceiptNotFoundError: No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 16:46:52 | ERROR   | __main__ | FAILED (ReceiptNotFoundError): No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 16:47:46 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test4.jpg ===
+2026-06-23 16:47:46 | INFO    | inference.detect | Cropped receipt to 450x729
+2026-06-23 16:47:46 | INFO    | inference.ocr | Initializing OCR engine 'easyocr'
+2026-06-23 16:47:50 | WARNING | easyocr.easyocr | Using CPU. Note: This module is much faster with a GPU.
+2026-06-23 16:47:56 | INFO    | inference.ocr | OCR produced 15 lines
+2026-06-23 16:47:56 | INFO    | inference.parse | Parsed 5 item lines (store='瓦せんべい・文楽人形焼')
+2026-06-23 16:48:04 | INFO    | inference.parse | Loading embedding model intfloat/multilingual-e5-small
+2026-06-23 16:48:04 | INFO    | sentence_transformers.SentenceTransformer | Use pytorch device_name: cpu
+2026-06-23 16:48:04 | INFO    | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: intfloat/multilingual-e5-small
+2026-06-23 16:48:09 | WARNING | huggingface_hub.file_download | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2026-06-23 16:54:04 | WARNING | huggingface_hub.file_download | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2026-06-23 16:54:07 | WARNING | huggingface_hub.file_download | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2026-06-23 16:54:21 | INFO    | inference.csv_writer | Wrote CSV C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv (5 rows)
+2026-06-23 16:54:21 | INFO    | database.db | Stored receipt id=2 with 5 items
+2026-06-23 16:54:21 | INFO    | inference.pipeline | === Done C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test4.jpg -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv ===
+2026-06-23 16:54:21 | INFO    | __main__ | OK -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv
+2026-06-23 20:22:32 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test4.jpg ===
+2026-06-23 20:22:32 | INFO    | inference.detect | Cropped receipt to 450x729
+2026-06-23 20:22:32 | INFO    | inference.ocr | Initializing OCR engine 'easyocr'
+2026-06-23 20:22:46 | WARNING | easyocr.easyocr | Using CPU. Note: This module is much faster with a GPU.
+2026-06-23 20:22:52 | INFO    | inference.ocr | OCR produced 15 lines
+2026-06-23 20:22:52 | INFO    | inference.parse | Parsed 5 item lines (store='瓦せんべい・文楽人形焼')
+2026-06-23 20:23:37 | INFO    | inference.parse | Loading embedding model intfloat/multilingual-e5-small
+2026-06-23 20:23:37 | INFO    | sentence_transformers.SentenceTransformer | Use pytorch device_name: cpu
+2026-06-23 20:23:37 | INFO    | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: intfloat/multilingual-e5-small
+2026-06-23 20:23:45 | INFO    | inference.csv_writer | Wrote CSV C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv (5 rows)
+2026-06-23 20:23:45 | INFO    | database.db | Stored receipt id=3 with 5 items
+2026-06-23 20:23:45 | INFO    | inference.pipeline | === Done C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test4.jpg -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv ===
+2026-06-23 20:23:45 | INFO    | __main__ | OK -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv
+2026-06-23 20:25:24 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test4.jpg ===
+2026-06-23 20:25:24 | INFO    | inference.detect | Cropped receipt to 450x729
+2026-06-23 20:25:24 | INFO    | inference.ocr | Initializing OCR engine 'easyocr'
+2026-06-23 20:25:29 | WARNING | easyocr.easyocr | Using CPU. Note: This module is much faster with a GPU.
+2026-06-23 20:25:35 | INFO    | inference.ocr | OCR produced 15 lines
+2026-06-23 20:25:35 | INFO    | inference.parse | Parsed 5 item lines (store='瓦せんべい・文楽人形焼')
+2026-06-23 20:25:39 | INFO    | inference.parse | Loading embedding model intfloat/multilingual-e5-small
+2026-06-23 20:25:39 | INFO    | sentence_transformers.SentenceTransformer | Use pytorch device_name: cpu
+2026-06-23 20:25:39 | INFO    | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: intfloat/multilingual-e5-small
+2026-06-23 20:25:47 | INFO    | inference.csv_writer | Wrote CSV C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv (5 rows)
+2026-06-23 20:25:47 | INFO    | database.db | Stored receipt id=4 with 5 items
+2026-06-23 20:25:47 | INFO    | inference.pipeline | === Done C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test4.jpg -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv ===
+2026-06-23 20:25:47 | INFO    | __main__ | OK -> C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\outputs\test4.csv
+2026-06-23 20:36:56 | ERROR   | __main__ | Input does not exist: C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test5.jpg
+2026-06-23 20:37:19 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test5.jpeg ===
+2026-06-23 20:37:19 | WARNING | inference.detect | No receipt-shaped contour found; trying fallback.
+2026-06-23 20:37:19 | ERROR   | inference.pipeline | C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test5.jpeg failed: ReceiptNotFoundError: No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 20:37:19 | ERROR   | __main__ | FAILED (ReceiptNotFoundError): No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 20:37:31 | INFO    | inference.pipeline | === Processing C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test6.jpeg ===
+2026-06-23 20:37:31 | WARNING | inference.detect | No receipt-shaped contour found; trying fallback.
+2026-06-23 20:37:31 | ERROR   | inference.pipeline | C:\Users\sa.er\LTH\Keio\MachineIntellegence\projectScripts\testData\test6.jpeg failed: ReceiptNotFoundError: No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).
+2026-06-23 20:37:31 | ERROR   | __main__ | FAILED (ReceiptNotFoundError): No receipt-shaped contour found. The background may be low-contrast (white receipt on white surface).

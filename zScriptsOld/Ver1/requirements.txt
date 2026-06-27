@@ -1,0 +1,23 @@
+# --- Stage 2: crop & deskew (implemented) ---
+opencv-python-headless>=4.10.0
+numpy>=1.26.0
+
+# --- Stage 3: OCR (not yet implemented) ---
+# paddleocr>=2.9.0
+# paddlepaddle>=2.6.0          # CPU build for local inference
+# easyocr>=1.7.1               # alternative to paddleocr
+
+# --- Stage 4: text cleaning (not yet implemented) ---
+# neologdn>=0.5.3
+# jaconv>=0.4.0
+# mojimoji>=0.1.0
+# sudachipy>=0.6.8
+# sudachidict-core>=20240716
+# transformers>=4.46.0
+# torch>=2.5.0                 # CPU build is fine for inference
+
+# --- Stage 5: categorization (not yet implemented) ---
+# sentence-transformers>=3.3.0
+
+# --- Stage 6: storage ---
+# sqlite3 is part of the Python standard library -- no install needed

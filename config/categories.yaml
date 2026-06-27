@@ -1,0 +1,60 @@
+# Category taxonomy used for embedding-based item categorization.
+# Each category has Japanese + English seed phrases; the embedder averages
+# them into one prototype vector. Add, remove, or translate freely. The
+# pipeline reads this file at runtime, so no code change is needed.
+
+categories:
+  "Dairy & Eggs":
+    - 牛乳
+    - ヨーグルト
+    - チーズ
+    - 卵
+    - バター
+  "Produce":
+    - 野菜
+    - 果物
+    - りんご
+    - バナナ
+    - トマト
+    - レタス
+  "Meat & Fish":
+    - 肉
+    - 鶏肉
+    - 豚肉
+    - 牛肉
+    - 魚
+    - 刺身
+  "Bakery":
+    - パン
+    - 食パン
+    - 菓子パン
+    - ベーグル
+  "Beverages":
+    - お茶
+    - コーヒー
+    - ジュース
+    - 水
+    - ビール
+    - 酒
+  "Snacks & Sweets":
+    - お菓子
+    - チョコレート
+    - スナック
+    - アイス
+    - せんべい
+  "Prepared Foods":
+    - 弁当
+    - おにぎり
+    - 惣菜
+    - サラダ
+  "Household":
+    - 洗剤
+    - トイレットペーパー
+    - ティッシュ
+    - ゴミ袋
+  "Personal Care":
+    - シャンプー
+    - 歯ブラシ
+    - 石鹸
+    - 化粧品
+  "Other/Uncategorized": []
