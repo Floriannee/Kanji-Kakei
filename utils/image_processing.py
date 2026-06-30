@@ -33,7 +33,9 @@ def deskew_and_crop(image_path: str) -> np.ndarray:
         np.ndarray: The preprocessed OpenCV image.
     """
     logger.info(f"Loading receipt image for preprocessing: {image_path}")
-    image = cv2.imread(image_path)
+    # cv2.imread fails on non-ASCII paths on Windows; use PIL instead
+    pil_img = Image.open(image_path).convert("RGB")
+    image = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     if image is None:
         logger.error(f"Failed to load image from path: {image_path}")
         raise FileNotFoundError(f"Image not found at {image_path}")
