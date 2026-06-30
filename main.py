@@ -1,18 +1,19 @@
 import os
 import time
+import uuid
 import logging
 import threading
 from datetime import datetime
 from collections import defaultdict
 
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, BooleanVar
 from PIL import Image
 
 # Config and Modules import
 from config.settings import OUTPUT_DIR
 from database.db_manager import init_db, insert_receipt
-from database.csv_manager import init_csv, append_items_to_csv, load_all_items
+from database.csv_manager import init_csv, append_items_to_csv, load_all_items, delete_items_by_id
 from utils.image_processing import deskew_and_crop, opencv_to_pil
 from inference.pipeline import ReceiptParser
 
@@ -64,6 +65,10 @@ class KanjiKakeiApp(ctk.CTk):
         self.processed_pil_image = None
         self.start_time = None
         self.is_processing = False
+
+        # item_id -> tkinter.BooleanVar for every checkbox currently shown in the main list.
+        # Repopulated each time render_category_list() redraws the main list.
+        self.checkbox_vars = {}
 
         # Build UI Elements
         self.init_ui()
@@ -128,6 +133,7 @@ class KanjiKakeiApp(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
         self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_columnconfigure(1, weight=0)
         self.main_frame.grid_rowconfigure(1, weight=1)
 
         self.main_header = ctk.CTkLabel(
@@ -137,10 +143,22 @@ class KanjiKakeiApp(ctk.CTk):
         )
         self.main_header.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="w")
 
+        # Deletes every checked row from both this list and the CSV ledger.
+        self.delete_btn = ctk.CTkButton(
+            self.main_frame,
+            text="🗑 Delete Selected",
+            command=self.delete_selected_main_items,
+            fg_color="#a83232",
+            hover_color="#822727",
+            width=160
+        )
+        self.delete_btn.grid(row=0, column=1, padx=10, pady=(0, 10), sticky="e")
+
         # Scrollable categorized list, populated from the CSV ledger
         self.list_scroll_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.list_scroll_frame.grid(row=1, column=0, sticky="nsew")
-        self.list_scroll_frame.grid_columnconfigure(0, weight=1)
+        self.list_scroll_frame.grid(row=1, column=0, columnspan=2, sticky="nsew")
+        self.list_scroll_frame.grid_columnconfigure(0, weight=0)
+        self.list_scroll_frame.grid_columnconfigure(1, weight=1)
 
     # ----------------- Main category list (CSV-backed) -----------------
 
@@ -150,6 +168,7 @@ class KanjiKakeiApp(ctk.CTk):
         self.render_category_list(
             self.list_scroll_frame,
             items,
+            self.checkbox_vars,
             empty_message="No receipts uploaded yet.\nClick 'Upload Receipt' to start."
         )
         self.update_summary(items)
@@ -158,18 +177,26 @@ class KanjiKakeiApp(ctk.CTk):
         total_spent = sum(safe_int(it.get("price")) for it in items)
         self.summary_label.configure(text=f"{len(items)} item(s) tracked\nTotal: ¥{total_spent:,}")
 
-    def render_category_list(self, container, items, empty_message="Nothing to show yet."):
+    def render_category_list(self, container, items, checkbox_vars: dict, empty_message="Nothing to show yet."):
         """
-        Render `items` (a list of dicts with at least japanese_name, english_name,
+        Render `items` (a list of dicts with at least id, japanese_name, english_name,
         category, price, store_name, date) into `container`, grouped under category
-        headers. Used for both the main window list and the review sub-menu list.
+        headers, with a selectable checkbox in front of each row. Used for both the
+        main window list and the review sub-menu list.
+
+        `checkbox_vars` is cleared and repopulated with {item_id: BooleanVar}, so the
+        caller can read back which rows are checked (e.g. when "Delete Selected" is pressed).
         """
         for widget in container.winfo_children():
             widget.destroy()
+        checkbox_vars.clear()
+
+        container.grid_columnconfigure(0, weight=0)
+        container.grid_columnconfigure(1, weight=1)
 
         if not items:
             placeholder = ctk.CTkLabel(container, text=empty_message, text_color="gray", justify="center")
-            placeholder.grid(row=0, column=0, padx=10, pady=40)
+            placeholder.grid(row=0, column=0, columnspan=2, padx=10, pady=40)
             return
 
         grouped = defaultdict(list)
@@ -187,12 +214,23 @@ class KanjiKakeiApp(ctk.CTk):
                 font=ctk.CTkFont(size=14, weight="bold"),
                 anchor="w"
             )
-            cat_label.grid(row=row_idx, column=0, sticky="ew", padx=5, pady=(15 if row_idx else 0, 5))
+            cat_label.grid(row=row_idx, column=0, columnspan=2, sticky="ew", padx=5, pady=(15 if row_idx else 0, 5))
             row_idx += 1
 
             for it in cat_items:
+                # Every row needs a stable unique id so its checkbox state can be tracked
+                # independently. CSV rows already carry one; fall back to a generated id
+                # for the rare case an upstream caller forgot to set one.
+                item_id = it.get("id") or uuid.uuid4().hex
+
+                select_var = BooleanVar(value=False)
+                checkbox_vars[item_id] = select_var
+
+                checkbox = ctk.CTkCheckBox(container, text="", variable=select_var, width=20)
+                checkbox.grid(row=row_idx, column=0, padx=(5, 0), pady=2, sticky="n")
+
                 row_frame = ctk.CTkFrame(container, fg_color=("gray85", "gray20"))
-                row_frame.grid(row=row_idx, column=0, sticky="ew", padx=5, pady=2)
+                row_frame.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=2)
                 row_frame.grid_columnconfigure(0, weight=1)
 
                 name_text = f"{it.get('japanese_name', '')}  ({it.get('english_name', '')})"
@@ -217,6 +255,30 @@ class KanjiKakeiApp(ctk.CTk):
                 price_label.grid(row=0, column=1, rowspan=2, padx=10, sticky="e")
 
                 row_idx += 1
+
+    def delete_selected_main_items(self):
+        """Delete every checked row from the main list, updating the CSV ledger to match."""
+        selected_ids = [item_id for item_id, var in self.checkbox_vars.items() if var.get()]
+        if not selected_ids:
+            messagebox.showwarning("Nothing Selected", "Check at least one item before pressing Delete.")
+            return
+
+        if not messagebox.askyesno(
+            "Confirm Delete",
+            f"Delete {len(selected_ids)} selected item(s) from your stored records?\nThis cannot be undone."
+        ):
+            return
+
+        try:
+            deleted = delete_items_by_id(selected_ids)
+        except Exception as err:
+            logger.error(f"Failed to delete items from CSV ledger: {err}")
+            messagebox.showerror("Delete Failed", f"Could not update the CSV ledger.\n\nDetails: {err}")
+            return
+
+        logger.info(f"Deleted {deleted} item(s) from the CSV ledger via the main window.")
+        self.refresh_main_list()
+        messagebox.showinfo("Deleted", f"Removed {deleted} item(s) from your stored records.")
 
     # ----------------- Upload + Scan flow -----------------
 
@@ -333,8 +395,10 @@ class KanjiKakeiApp(ctk.CTk):
 class ReceiptReviewDialog(ctk.CTkToplevel):
     """
     Sub-menu shown right after a receipt has been scanned. Lets the user inspect
-    the scanned image and the parsed line items before committing anything.
-    Cancel discards everything; Confirm writes the data to the CSV ledger.
+    the scanned image and the parsed line items before committing anything, and
+    optionally remove any misread/unwanted items using the same checkbox + delete
+    pattern as the main window. Cancel discards everything; Confirm writes whatever
+    items remain to the CSV ledger.
     """
 
     def __init__(self, parent: KanjiKakeiApp, result: dict, pil_image: Image.Image, image_path: str):
@@ -343,6 +407,18 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
         self.result = result
         self.pil_image = pil_image
         self.image_path = image_path
+
+        # Working copy of the parsed items, each tagged with a throwaway local id used
+        # only for checkbox tracking inside this dialog (separate from the permanent
+        # CSV row ids, which are only assigned once an item is actually confirmed/saved).
+        self.working_items = []
+        for item in result.get("items", []):
+            working_item = dict(item)
+            working_item["id"] = uuid.uuid4().hex
+            self.working_items.append(working_item)
+
+        # item_id -> BooleanVar for every checkbox currently shown in this dialog's list.
+        self.checkbox_vars = {}
 
         self.title("Review Scanned Receipt")
         self.geometry("950x650")
@@ -369,10 +445,10 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
         # Defer rendering until the frame has been laid out and has real dimensions
         self.after(50, self.render_preview_image)
 
-        # ----- Right: parsed line items, grouped by category -----
+        # ----- Right: parsed line items, grouped by category, with delete support -----
         self.info_frame = ctk.CTkFrame(self)
         self.info_frame.grid(row=0, column=1, padx=15, pady=15, sticky="nsew")
-        self.info_frame.grid_rowconfigure(2, weight=1)
+        self.info_frame.grid_rowconfigure(3, weight=1)
         self.info_frame.grid_columnconfigure(0, weight=1)
 
         store_text = result.get("store_name", "Unknown Store")
@@ -383,17 +459,29 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
         totals_text = f"Total: ¥{safe_int(result.get('total_amount')):,}   ·   Tax: ¥{safe_int(result.get('tax_amount')):,}"
         ctk.CTkLabel(
             self.info_frame, text=totals_text, font=ctk.CTkFont(size=12), text_color="gray", anchor="w"
-        ).grid(row=1, column=0, sticky="w", padx=10, pady=(0, 10))
+        ).grid(row=1, column=0, sticky="w", padx=10, pady=(0, 5))
+
+        # Toolbar: lets the user discard any misread/unwanted items before saving
+        self.items_toolbar = ctk.CTkFrame(self.info_frame, fg_color="transparent")
+        self.items_toolbar.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 5))
+        self.items_toolbar.grid_columnconfigure(0, weight=1)
+
+        self.delete_item_btn = ctk.CTkButton(
+            self.items_toolbar,
+            text="🗑 Delete Selected",
+            command=self.delete_selected_working_items,
+            fg_color="#a83232",
+            hover_color="#822727",
+            width=160
+        )
+        self.delete_item_btn.grid(row=0, column=1, sticky="e")
 
         self.items_scroll = ctk.CTkScrollableFrame(self.info_frame, fg_color="transparent")
-        self.items_scroll.grid(row=2, column=0, sticky="nsew", padx=5)
-        self.items_scroll.grid_columnconfigure(0, weight=1)
+        self.items_scroll.grid(row=3, column=0, sticky="nsew", padx=5)
+        self.items_scroll.grid_columnconfigure(0, weight=0)
+        self.items_scroll.grid_columnconfigure(1, weight=1)
 
-        display_items = self._build_display_items(result)
-        # Reuse the exact same renderer as the main window so the formats match.
-        parent.render_category_list(
-            self.items_scroll, display_items, empty_message="No items detected on this receipt."
-        )
+        self._render_working_items()
 
         if result.get("savings_advice"):
             advice_label = ctk.CTkLabel(
@@ -403,7 +491,7 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
                 justify="left",
                 text_color="lightgreen"
             )
-            advice_label.grid(row=3, column=0, sticky="w", padx=10, pady=10)
+            advice_label.grid(row=4, column=0, sticky="w", padx=10, pady=10)
 
         # ----- Bottom action buttons -----
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -428,13 +516,13 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
         self.confirm_btn.grid(row=0, column=1, padx=10)
 
     @staticmethod
-    def _build_display_items(result: dict) -> list:
-        """Reshape the raw parsed receipt into the row format render_category_list expects."""
-        store_name = result.get("store_name", "Unknown")
+    def _build_display_items(items: list, store_name: str) -> list:
+        """Reshape working items into the row format render_category_list expects."""
         date_str = datetime.now().strftime("%Y-%m-%d")
         display_items = []
-        for it in result.get("items", []):
+        for it in items:
             display_items.append({
+                "id": it.get("id"),
                 "japanese_name": it.get("japanese_name", ""),
                 "english_name": it.get("english_name", ""),
                 "category": it.get("category") or "Other",
@@ -443,6 +531,27 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
                 "date": date_str,
             })
         return display_items
+
+    def _render_working_items(self):
+        """Redraw the item list from self.working_items, reusing the main window's renderer."""
+        store_name = self.result.get("store_name", "Unknown")
+        display_items = self._build_display_items(self.working_items, store_name)
+        self.parent_app.render_category_list(
+            self.items_scroll,
+            display_items,
+            self.checkbox_vars,
+            empty_message="No items left on this receipt."
+        )
+
+    def delete_selected_working_items(self):
+        """Remove every checked item from this receipt's working list (not yet saved anywhere)."""
+        selected_ids = {item_id for item_id, var in self.checkbox_vars.items() if var.get()}
+        if not selected_ids:
+            messagebox.showwarning("Nothing Selected", "Check at least one item before pressing Delete.")
+            return
+
+        self.working_items = [it for it in self.working_items if it.get("id") not in selected_ids]
+        self._render_working_items()
 
     def render_preview_image(self):
         """Scale and show the scanned image inside the sub-menu's preview frame."""
@@ -467,13 +576,24 @@ class ReceiptReviewDialog(ctk.CTkToplevel):
         self.image_label.image = ctk_img  # Keep reference
 
     def on_cancel(self):
-        """Close the sub-menu without saving anything."""
+        """Close the sub-menu without saving anything, regardless of any deletions made here."""
         logger.info("User cancelled the receipt review. Discarding scanned data.")
         self.destroy()
 
     def on_confirm(self):
-        """Commit the scanned data to the CSV ledger via the parent app, then close."""
-        success = self.parent_app.confirm_receipt(self.result, self.image_path)
+        """Commit whatever items remain to the CSV ledger via the parent app, then close."""
+        if not self.working_items:
+            messagebox.showwarning(
+                "No Items To Save",
+                "All items were removed from this receipt, so nothing was saved."
+            )
+            self.destroy()
+            return
+
+        save_result = dict(self.result)
+        save_result["items"] = self.working_items
+
+        success = self.parent_app.confirm_receipt(save_result, self.image_path)
         if success:
             self.destroy()
 
