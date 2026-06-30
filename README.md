@@ -5,6 +5,13 @@
 
 ---
 
+## To run the script
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+.\.venv\Scripts\Activate.ps1
+$env:GROQ_API_KEY="GROK_KEY"
+python main.py
+
+
 ## 🌟 Key Features
 
 1. **OCR Japanese Receipt Scanning**
