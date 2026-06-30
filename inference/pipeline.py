@@ -55,12 +55,17 @@ class ReceiptParser:
 
     def pil_to_base64_data_url(self, pil_image: Image.Image) -> str:
         """Convert a PIL image to a base64 encoded string data URL."""
+        # Resize large images to reduce payload size and avoid upload timeouts
+        max_dim = 1280
+        w, h = pil_image.size
+        if max(w, h) > max_dim:
+            ratio = max_dim / max(w, h)
+            pil_image = pil_image.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
         buffered = io.BytesIO()
-        # Save as PNG
-        pil_image.save(buffered, format="PNG")
+        pil_image.save(buffered, format="JPEG", quality=85)
         img_bytes = buffered.getvalue()
         base64_str = base64.b64encode(img_bytes).decode("utf-8")
-        return f"data:image/png;base64,{base64_str}"
+        return f"data:image/jpeg;base64,{base64_str}"
 
     def parse_receipt_image(self, pil_image: Image.Image) -> dict:
         """
