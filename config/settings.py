@@ -3,6 +3,8 @@ import logging
 
 # Setup default configurations
 DB_FILE = os.path.join("database", "kakei.db")
+# Continually-updated CSV ledger that backs the main "stored information" list in the GUI
+CSV_FILE = os.path.join("database", "kakei_items.csv")
 OUTPUT_DIR = "outputs"
 
 # Configure logging format globally

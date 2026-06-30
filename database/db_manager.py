@@ -112,7 +112,7 @@ def insert_receipt(receipt_data: dict, image_path: str = "") -> int:
             japanese_name = item.get("japanese_name", "")
             english_name = item.get("english_name", "")
             price = item.get("price", 0)
-            category = item.get("category", "Miscellaneous")
+            category = item.get("category", "Other")
             confidence = item.get("confidence", 1.0)
             
             cursor.execute("""

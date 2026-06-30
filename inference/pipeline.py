@@ -24,6 +24,7 @@ CRITICAL:
 2. Do NOT extract tax breakdowns, tax totals, subtotals, change, payment details, or point balances as individual items in the "items" list. For example, lines like "8%対象", "10%対象", "消費税", "内消費税", "非課税" must NEVER be listed as items in the "items" list.
 3. Extract the total tax amount (sum of all taxes, or the value next to "消費税", "内消費税", or "税") and put it in the root-level "tax_amount" field.
 4. Ensure each physical product is only listed ONCE in the "items" list. Do NOT list the same product more than once unless multiple separate units were actually purchased. If the receipt repeats product names or prices in tax calculation sections, do NOT duplicate them.
+5. Assign every item a "category" field, choosing exactly one of: "Food", "Drinks", "Snacks", "Household", "Stationery", "Health & Beauty", "Other". Pick whichever option best fits the product; use "Other" only if nothing else fits.
 
 Return ONLY raw JSON, no markdown, no explanation:
 {
@@ -34,6 +35,7 @@ Return ONLY raw JSON, no markdown, no explanation:
 {
 "japanese_name": "商品名",
 "english_name": "English translation",
+"category": "Food",
 "price": 198,
 "note": "Cultural context and student tips"
 }
@@ -140,24 +142,28 @@ class ReceiptParser:
                 {
                     "japanese_name": "ファミチキ (骨なし)",
                     "english_name": "FamiChiki (Boneless Fried Chicken)",
+                    "category": "Food",
                     "price": 220,
                     "note": "FamilyMart's signature boneless fried chicken, highly popular among students as a quick hot snack."
                 },
                 {
                     "japanese_name": "お茶 600ml",
                     "english_name": "Green Tea 600ml",
+                    "category": "Drinks",
                     "price": 160,
                     "note": "Standard unsweetened bottled green tea sold at all Japanese convenience stores."
                 },
                 {
                     "japanese_name": "カレーパン",
                     "english_name": "Curry Bread",
+                    "category": "Food",
                     "price": 150,
                     "note": "Deep-fried dough filled with thick Japanese curry paste, a staple bakery snack."
                 },
                 {
                     "japanese_name": "レジ袋 M",
                     "english_name": "Shopping Bag M",
+                    "category": "Household",
                     "price": 3,
                     "note": "Standard plastic bag fee introduced in Japan in 2020."
                 }
