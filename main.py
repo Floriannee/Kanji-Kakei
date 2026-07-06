@@ -26,7 +26,11 @@ ctk.set_default_color_theme("blue")  # Themes: "blue", "green", "dark-blue"
 
 # Preferred display order for item categories. Anything outside this list is
 # sorted alphabetically and appended at the end.
-CATEGORY_ORDER = ["Food", "Drinks", "Snacks", "Household", "Stationery", "Health & Beauty", "Other"]
+CATEGORY_ORDER = [
+    "Groceries", "Drink", "Snack", "Dining Out", "Daily Essentials", 
+    "Clothes", "Personal Care", "Stationery", "Leisure", "Souvenirs", 
+    "Tax", "Other"
+]
 
 
 def sorted_categories(categories) -> list:
@@ -356,7 +360,7 @@ class ReceiptApp(ctk.CTk):
             for r in records:
                 price = float(safe_int(r.get("price")))
                 total_global += price
-                cat = (r.get("category") or "Other").strip().capitalize()
+                cat = (r.get("category") or "Other").strip()
                 category_totals[cat] += price
 
             # Determine largest spending cluster
@@ -369,21 +373,31 @@ class ReceiptApp(ctk.CTk):
             # Build HTML UI components for the category metrics bars
             categories_html = ""
             category_icons = {
-                "Food": "🛒",
-                "Drinks": "🥤",
-                "Snacks": "🍿",
-                "Household": "🏠",
+                "Groceries": "🛒",
+                "Drink": "🥤",
+                "Snack": "🍿",
+                "Dining Out": "🍜",
+                "Daily Essentials": "🏠",
+                "Clothes": "👕",
+                "Personal Care": "💅",
                 "Stationery": "✏️",
-                "Health & Beauty": "💅",
+                "Leisure": "🎮",
+                "Souvenirs": "🎁",
+                "Tax": "💸",
                 "Other": "📦",
             }
             category_colors = {
-                "Food": "#0d47a1",
-                "Drinks": "#1565c0",
-                "Snacks": "#ff8f00",
-                "Household": "#2e7d32",
+                "Groceries": "#0d47a1",
+                "Drink": "#1565c0",
+                "Snack": "#ff8f00",
+                "Dining Out": "#e64a19",
+                "Daily Essentials": "#2e7d32",
+                "Clothes": "#00838f",
+                "Personal Care": "#c2185b",
                 "Stationery": "#6a1b9a",
-                "Health & Beauty": "#c2185b",
+                "Leisure": "#ad1457",
+                "Souvenirs": "#ef6c00",
+                "Tax": "#37474f",
                 "Other": "#616161",
             }
 
@@ -416,7 +430,7 @@ class ReceiptApp(ctk.CTk):
                         and r.get("store_name") == records[-1].get("store_name")):
                     price = float(safe_int(r.get("price")))
                     last_receipt_total += price
-                    badge_class = (r.get("category") or "Other").lower().replace(" & ", "-")
+                    badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
 
                     receipt_items_html += f"""
                     <tr>
@@ -472,12 +486,17 @@ class ReceiptApp(ctk.CTk):
                     td {{ padding: 14px 12px; border-bottom: 1px solid var(--border); font-size: 0.95rem; }}
                     .jp-text {{ font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; font-weight: bold; color: #d35400; background: #fff5eb; padding: 2px 6px; border-radius: 4px; }}
                     .badge {{ display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #fff; }}
-                    .badge-food {{ background-color: #0d47a1; }}
-                    .badge-drinks {{ background-color: #1565c0; }}
-                    .badge-snacks {{ background-color: #ff8f00; }}
-                    .badge-household {{ background-color: #2e7d32; }}
+                    .badge-groceries {{ background-color: #0d47a1; }}
+                    .badge-drink {{ background-color: #1565c0; }}
+                    .badge-snack {{ background-color: #ff8f00; }}
+                    .badge-dining-out {{ background-color: #e64a19; }}
+                    .badge-daily-essentials {{ background-color: #2e7d32; }}
+                    .badge-clothes {{ background-color: #00838f; }}
+                    .badge-personal-care {{ background-color: #c2185b; }}
                     .badge-stationery {{ background-color: #6a1b9a; }}
-                    .badge-health-beauty {{ background-color: #c2185b; }}
+                    .badge-leisure {{ background-color: #ad1457; }}
+                    .badge-souvenirs {{ background-color: #ef6c00; }}
+                    .badge-tax {{ background-color: #37474f; }}
                     .badge-other {{ background-color: #616161; }}
                     .recap-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }}
                     .stat-card {{ background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 20px; border-radius: 12px; }}

@@ -24,8 +24,7 @@ CRITICAL:
 2. Do NOT extract tax breakdowns, tax totals, subtotals, change, payment details, or point balances as individual items in the "items" list. For example, lines like "8%対象", "10%対象", "消費税", "内消費税", "非課税" must NEVER be listed as items in the "items" list.
 3. Extract the total tax amount (sum of all taxes, or the value next to "消費税", "内消費税", or "税") and put it in the root-level "tax_amount" field.
 4. Ensure each physical product is only listed ONCE in the "items" list. Do NOT list the same product more than once unless multiple separate units were actually purchased. If the receipt repeats product names or prices in tax calculation sections, do NOT duplicate them.
-5. Assign every item a "category" field, choosing exactly one of: "Food", "Drinks", "Snacks", "Household", "Stationery", "Health & Beauty", "Other". Pick whichever option best fits the product; use "Other" only if nothing else fits.
-
+5. The "category" field must be exactly one of: Groceries, Drink, Snack, Dining Out, Daily Essentials, Clothes, Personal Care, Stationery, Leisure, Souvenirs, Tax, Other.
 Return ONLY raw JSON, no markdown, no explanation:
 {
 "store_name": "Japanese + English name",
