@@ -16,7 +16,7 @@ For each item provide:
 - Full proper name (resolve ALL katakana abbreviations e.g. ｱｰﾓﾝﾄﾞﾁｮｺ  明治 アーモンドチョコレート)
 - English translation
 - category: classify the item into EXACTLY ONE of these categories:
-  Food, Drink, Snack, Household, Personal Care, Stationery, Other
+  Groceries, Drink, Snack, Dining Out, Daily Essentials, Clothes, Personal Care, Stationery, Leisure, Souvenirs, Tax, Other.
 - note: explain WHAT it is, WHY it's popular, any student tips
 (e.g. "ナナチキ  7-Eleven's iconic fried chicken sold hot at the register,
 crispy outside juicy inside, ~250, staple for students on a budget")
