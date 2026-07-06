@@ -5,6 +5,10 @@ import threading
 import webbrowser  # To open the interactive HTML Dashboard
 from datetime import datetime
 from collections import defaultdict
+import http.server
+import socketserver
+import json
+import base64
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
@@ -283,8 +287,8 @@ class ReceiptApp(ctk.CTk):
             logger.info("Saving user-validated structured invoice data back into local storage...")
 
             # Write transaction history into relational DB and CSV files
-            insert_receipt(final_verified_receipt)
-            append_items_to_csv(final_verified_receipt)
+            insert_receipt(final_verified_receipt, self.current_image_path or "")
+            append_items_to_csv(final_verified_receipt, self.current_image_path or "")
 
             # Re-sync list tables views on screen
             self.refresh_history_table()
@@ -333,200 +337,290 @@ class ReceiptApp(ctk.CTk):
         except Exception as read_err:
             logger.error(f"Failed loading values inside history textbox UI panel: {read_err}")
             self.history_textbox.insert("1.0", f"Error rendering dataset storage tables:\n{read_err}")
-
         self.history_textbox.configure(state="disabled")
 
     # =========================================================================
     # GENERATE AND OPEN INTERACTIVE HTML DASHBOARD
     # =========================================================================
     def open_html_dashboard(self):
-        """Generates a comprehensive HTML dashboard with two main view tabs
+        """Generates a comprehensive HTML dashboard and launches it in the browser."""
+        if generate_html_dashboard():
+            if server_running:
+                webbrowser.open("http://localhost:8000/")
+            else:
+                output_html_path = os.path.join(OUTPUT_DIR, "dashboard_kanji_kakei.html")
+                webbrowser.open("file://" + os.path.realpath(output_html_path))
+        else:
+            messagebox.showinfo(
+                "No Data Available", "No receipts scanned yet. Please upload and process a receipt first."
+            )
 
-        (Receipt Analysis + Monthly Breakdown Summary) from CSV records, then launches it.
-        """
-        try:
-            records = load_all_items()
-            if not records:
-                messagebox.showinfo(
-                    "No Data Available", "No receipts scanned yet. Please upload and process a receipt first."
-                )
-                return
 
-            # 1. Financial Analytics Compilation for Tab 2 (Global Recap)
-            total_global = 0
-            unique_receipts = len(set((r.get("date") or "") + (r.get("store_name") or "") for r in records))
-            category_totals = defaultdict(float)
+def generate_html_dashboard() -> bool:
+    """Generates a comprehensive HTML dashboard and saves it in OUTPUT_DIR.
+    Returns True on success, False if no records are available.
+    """
+    try:
+        records = load_all_items()
+        if not records:
+            return False
 
-            for r in records:
-                price = float(safe_int(r.get("price")))
-                total_global += price
-                cat = (r.get("category") or "Other").strip()
-                category_totals[cat] += price
+        # 1. Financial Analytics Compilation for Tab 2 (Global Recap)
+        total_global = 0
+        unique_receipts = len(set((r.get("date") or "") + (r.get("store_name") or "") for r in records))
+        category_totals = defaultdict(float)
 
-            # Determine largest spending cluster
-            top_category = "None"
-            top_category_amount = 0
-            if category_totals:
-                top_category = max(category_totals, key=category_totals.get)
-                top_category_amount = category_totals[top_category]
+        for r in records:
+            price = float(safe_int(r.get("price")))
+            total_global += price
+            cat = (r.get("category") or "Other").strip()
+            category_totals[cat] += price
 
-            # Build HTML UI components for the category metrics bars
-            categories_html = ""
-            category_icons = {
-                "Groceries": "🛒",
-                "Drink": "🥤",
-                "Snack": "🍿",
-                "Dining Out": "🍜",
-                "Daily Essentials": "🏠",
-                "Clothes": "👕",
-                "Personal Care": "💅",
-                "Stationery": "✏️",
-                "Leisure": "🎮",
-                "Souvenirs": "🎁",
-                "Tax": "💸",
-                "Other": "📦",
-            }
-            category_colors = {
-                "Groceries": "#0d47a1",
-                "Drink": "#1565c0",
-                "Snack": "#ff8f00",
-                "Dining Out": "#e64a19",
-                "Daily Essentials": "#2e7d32",
-                "Clothes": "#00838f",
-                "Personal Care": "#c2185b",
-                "Stationery": "#6a1b9a",
-                "Leisure": "#ad1457",
-                "Souvenirs": "#ef6c00",
-                "Tax": "#37474f",
-                "Other": "#616161",
-            }
+        # Determine largest spending cluster
+        top_category = "None"
+        top_category_amount = 0
+        if category_totals:
+            top_category = max(category_totals, key=category_totals.get)
+            top_category_amount = category_totals[top_category]
 
-            for cat in sorted_categories(category_totals.keys()):
-                amount = category_totals[cat]
-                percentage = (amount / total_global * 100) if total_global > 0 else 0
-                icon = category_icons.get(cat, "📦")
-                color = category_colors.get(cat, "#616161")
-                categories_html += f"""
-                <div class="category-progress">
-                    <div class="progress-header">
-                        <span>{icon} {cat}</span>
-                        <strong>¥{amount:,.0f} ({percentage:.1f}%)</strong>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" style="width: {percentage}%; background-color: {color};"></div>
-                    </div>
+        # Build HTML UI components for the category metrics bars
+        categories_html = ""
+        category_icons = {
+            "Groceries": "🛒",
+            "Drink": "🥤",
+            "Snack": "🍿",
+            "Dining Out": "🍜",
+            "Daily Essentials": "🏠",
+            "Clothes": "👕",
+            "Personal Care": "💅",
+            "Stationery": "✏️",
+            "Leisure": "🎮",
+            "Souvenirs": "🎁",
+            "Tax": "💸",
+            "Other": "📦",
+        }
+        category_colors = {
+            "Groceries": "#0d47a1",
+            "Drink": "#1565c0",
+            "Snack": "#ff8f00",
+            "Dining Out": "#e64a19",
+            "Daily Essentials": "#2e7d32",
+            "Clothes": "#00838f",
+            "Personal Care": "#c2185b",
+            "Stationery": "#6a1b9a",
+            "Leisure": "#ad1457",
+            "Souvenirs": "#ef6c00",
+            "Tax": "#37474f",
+            "Other": "#616161",
+        }
+
+        for cat in sorted_categories(category_totals.keys()):
+            amount = category_totals[cat]
+            percentage = (amount / total_global * 100) if total_global > 0 else 0
+            icon = category_icons.get(cat, "📦")
+            color = category_colors.get(cat, "#616161")
+            categories_html += f"""
+            <div class="category-progress">
+                <div class="progress-header">
+                    <span>{icon} {cat}</span>
+                    <strong>¥{amount:,.0f} ({percentage:.1f}%)</strong>
                 </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: {percentage}%; background-color: {color};"></div>
+                </div>
+            </div>
+            """
+
+        # 2. Extract Data Rows for Tab 1 (Most Recent Receipt Analysis Viewport)
+        last_receipt_date = records[-1].get("date") or "Unknown"
+        last_receipt_store = records[-1].get("store_name") or "Unknown"
+        last_receipt_image_path = records[-1].get("image_path") or ""
+        last_savings_advice = records[-1].get("savings_advice") or "No advice available."
+        
+        last_receipt_image_url = ""
+        if last_receipt_image_path:
+            last_receipt_image_url = "/receipts/" + os.path.basename(last_receipt_image_path)
+            
+        image_card_style = "" if last_receipt_image_url else "display: none;"
+        receipt_items_html = ""
+        last_receipt_total = 0
+
+        # Match and safely bundle all entry items belonging to the same transaction
+        for r in records:
+            if (r.get("date") == records[-1].get("date")
+                    and r.get("store_name") == records[-1].get("store_name")):
+                price = float(safe_int(r.get("price")))
+                last_receipt_total += price
+                badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
+
+                receipt_items_html += f"""
+                <tr>
+                    <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
+                    <td>{r.get('english_name', '')}</td>
+                    <td><span class="badge badge-{badge_class}">{r.get('category', 'Other')}</span></td>
+                    <td><strong>¥{price:,.0f}</strong></td>
+                </tr>
                 """
 
-            # 2. Extract Data Rows for Tab 1 (Most Recent Receipt Analysis Viewport)
-            last_receipt_date = records[-1].get("date") or "Unknown"
-            last_receipt_store = records[-1].get("store_name") or "Unknown"
-            receipt_items_html = ""
-            last_receipt_total = 0
+        # 3. Clean Responsive Component Embedded Core HTML Blueprint
+        html_template = f"""<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Kanji-Kakei - Interactive Insights Dashboard</title>
+            <style>
+                :root {{
+                    --primary: #2c3e50;
+                    --primary-light: #34495e;
+                    --accent: #1f6aa5;
+                    --accent-hover: #2980b9;
+                    --bg: #f8f9fa;
+                    --card-bg: #ffffff;
+                    --text: #2c3e50;
+                    --text-muted: #7f8c8d;
+                    --border: #e2e8f0;
+                }}
+                * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; }}
+                body {{ background-color: var(--bg); color: var(--text); padding: 20px; }}
+                .container {{ max-width: 1100px; margin: 0 auto; }}
+                header {{ background-color: var(--card-bg); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }}
+                .logo {{ font-size: 1.4rem; font-weight: 700; color: var(--primary); }}
+                .logo span {{ color: var(--accent); }}
+                .nav-tabs {{ display: flex; gap: 10px; }}
+                .tab-btn {{ background: none; border: none; padding: 10px 20px; font-size: 1rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.3s; }}
+                .tab-btn:hover {{ color: var(--primary); background-color: #edf2f7; }}
+                .tab-btn.active {{ color: #fff; background-color: var(--accent); }}
+                .tab-content {{ display: none; }}
+                .tab-content.active {{ display: block; animation: fadeIn 0.4s ease; }}
+                @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+                
+                .dashboard-grid {{ display: grid; grid-template-columns: 350px 1fr; gap: 25px; align-items: start; }}
+                @media (max-width: 800px) {{ .dashboard-grid {{ grid-template-columns: 1fr; }} }}
+                
+                .card {{ position: relative; background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 25px; border: 1px solid var(--border); }}
+                .card-title {{ font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 10px; }}
+                
+                .dropzone {{ border: 2px dashed var(--accent); border-radius: 8px; background: #fdfdfd; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 10px; }}
+                .dropzone:hover, .dropzone.dragover {{ background: #f0f7ff; border-color: var(--accent-hover); }}
+                .dropzone-content {{ display: flex; flex-direction: column; align-items: center; gap: 10px; }}
+                .upload-icon {{ font-size: 2rem; }}
+                
+                .preview-container {{ text-align: center; }}
+                .preview-container img {{ max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+                .actions {{ display: flex; gap: 10px; justify-content: center; }}
+                
+                .btn {{ padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }}
+                .btn-accent {{ background-color: var(--accent); color: white; }}
+                .btn-accent:hover {{ background-color: var(--accent-hover); }}
+                .btn-muted {{ background-color: #edf2f7; color: var(--text-muted); }}
+                .btn-muted:hover {{ background-color: #e2e8f0; }}
+                
+                .processing-overlay {{ position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-radius: 12px; }}
+                .spinner {{ border: 4px solid rgba(0,0,0,0.1); width: 50px; height: 50px; border-radius: 50%; border-left-color: var(--accent); animation: spin 1s linear infinite; }}
+                @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
+                .processing-status {{ font-weight: 600; color: var(--primary); }}
+                .timer {{ font-size: 1.1rem; color: var(--text-muted); font-family: monospace; }}
+                
+                .receipt-image-wrapper {{ text-align: center; padding: 10px; }}
+                .receipt-img {{ max-width: 100%; border-radius: 8px; max-height: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+                
+                .savings-advice-box {{ background-color: #fffde7; border-left: 4px solid #fbc02d; padding: 15px; border-radius: 0 8px 8px 0; margin-top: 20px; }}
+                .advice-title {{ font-weight: 700; color: #f57f17; margin-bottom: 5px; font-size: 0.95rem; }}
+                .advice-text {{ font-style: italic; color: #5d4037; font-size: 0.95rem; }}
+                
+                .receipt-summary {{ background: var(--bg); border-radius: 8px; padding: 15px; }}
+                .meta-item {{ display: flex; justify-content: space-between; margin-bottom: 8px; }}
+                .meta-item .label {{ color: var(--text-muted); }}
+                .meta-item .value {{ font-weight: 600; }}
+                .total-amount {{ font-size: 1.5rem; color: var(--accent); text-align: right; margin-top: 15px; font-weight: 700; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                th {{ background-color: var(--bg); color: var(--primary); text-align: left; padding: 12px; font-weight: 600; }}
+                td {{ padding: 14px 12px; border-bottom: 1px solid var(--border); font-size: 0.95rem; }}
+                .jp-text {{ font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; font-weight: bold; color: #d35400; background: #fff5eb; padding: 2px 6px; border-radius: 4px; }}
+                .badge {{ display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #fff; }}
+                .badge-groceries {{ background-color: #0d47a1; }}
+                .badge-drink {{ background-color: #1565c0; }}
+                .badge-snack {{ background-color: #ff8f00; }}
+                .badge-dining-out {{ background-color: #e64a19; }}
+                .badge-daily-essentials {{ background-color: #2e7d32; }}
+                .badge-clothes {{ background-color: #00838f; }}
+                .badge-personal-care {{ background-color: #c2185b; }}
+                .badge-stationery {{ background-color: #6a1b9a; }}
+                .badge-leisure {{ background-color: #ad1457; }}
+                .badge-souvenirs {{ background-color: #ef6c00; }}
+                .badge-tax {{ background-color: #37474f; }}
+                .badge-other {{ background-color: #616161; }}
+                .recap-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+                .stat-card {{ background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 20px; border-radius: 12px; }}
+                .stat-card.accent-card {{ background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); }}
+                .stat-label {{ font-size: 0.9rem; opacity: 0.8; }}
+                .stat-value {{ font-size: 1.8rem; font-weight: 700; margin-top: 5px; }}
+                .category-progress {{ margin-bottom: 20px; }}
+                .progress-header {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
+                .progress-bar-container {{ background-color: var(--border); height: 10px; border-radius: 5px; overflow: hidden; }}
+                .progress-bar {{ height: 100%; border-radius: 5px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <header>
+                    <div class="logo">🇯🇵 Kanji-Kakei <span>. Dashboard</span></div>
+                    <div class="nav-tabs">
+                        <button class="tab-btn active" onclick="switchTab('analysis')">Receipt Analysis</button>
+                        <button class="tab-btn" onclick="switchTab('recap')">Monthly Summary Breakdown</button>
+                    </div>
+                </header>
 
-            # Match and safely bundle all entry items belonging to the same transaction
-            for r in records:
-                if (r.get("date") == records[-1].get("date")
-                        and r.get("store_name") == records[-1].get("store_name")):
-                    price = float(safe_int(r.get("price")))
-                    last_receipt_total += price
-                    badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
-
-                    receipt_items_html += f"""
-                    <tr>
-                        <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
-                        <td>{r.get('english_name', '')}</td>
-                        <td><span class="badge badge-{badge_class}">{r.get('category', 'Other')}</span></td>
-                        <td><strong>¥{price:,.0f}</strong></td>
-                    </tr>
-                    """
-
-            # 3. Clean Responsive Component Embedded Core HTML Blueprint
-            html_template = f"""<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Kanji-Kakei - Interactive Insights Dashboard</title>
-                <style>
-                    :root {{
-                        --primary: #2c3e50;
-                        --primary-light: #34495e;
-                        --accent: #1f6aa5;
-                        --accent-hover: #2980b9;
-                        --bg: #f8f9fa;
-                        --card-bg: #ffffff;
-                        --text: #2c3e50;
-                        --text-muted: #7f8c8d;
-                        --border: #e2e8f0;
-                    }}
-                    * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; }}
-                    body {{ background-color: var(--bg); color: var(--text); padding: 20px; }}
-                    .container {{ max-width: 1100px; margin: 0 auto; }}
-                    header {{ background-color: var(--card-bg); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }}
-                    .logo {{ font-size: 1.4rem; font-weight: 700; color: var(--primary); }}
-                    .logo span {{ color: var(--accent); }}
-                    .nav-tabs {{ display: flex; gap: 10px; }}
-                    .tab-btn {{ background: none; border: none; padding: 10px 20px; font-size: 1rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.3s; }}
-                    .tab-btn:hover {{ color: var(--primary); background-color: #edf2f7; }}
-                    .tab-btn.active {{ color: #fff; background-color: var(--accent); }}
-                    .tab-content {{ display: none; }}
-                    .tab-content.active {{ display: block; animation: fadeIn 0.4s ease; }}
-                    @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; }}
-                    .card {{ background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 25px; border: 1px solid var(--border); }}
-                    .card-title {{ font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 10px; }}
-                    .receipt-summary {{ background: var(--bg); border-radius: 8px; padding: 15px; }}
-                    .meta-item {{ display: flex; justify-content: space-between; margin-bottom: 8px; }}
-                    .meta-item .label {{ color: var(--text-muted); }}
-                    .meta-item .value {{ font-weight: 600; }}
-                    .total-amount {{ font-size: 1.5rem; color: var(--accent); text-align: right; margin-top: 15px; font-weight: 700; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th {{ background-color: var(--bg); color: var(--primary); text-align: left; padding: 12px; font-weight: 600; }}
-                    td {{ padding: 14px 12px; border-bottom: 1px solid var(--border); font-size: 0.95rem; }}
-                    .jp-text {{ font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; font-weight: bold; color: #d35400; background: #fff5eb; padding: 2px 6px; border-radius: 4px; }}
-                    .badge {{ display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #fff; }}
-                    .badge-groceries {{ background-color: #0d47a1; }}
-                    .badge-drink {{ background-color: #1565c0; }}
-                    .badge-snack {{ background-color: #ff8f00; }}
-                    .badge-dining-out {{ background-color: #e64a19; }}
-                    .badge-daily-essentials {{ background-color: #2e7d32; }}
-                    .badge-clothes {{ background-color: #00838f; }}
-                    .badge-personal-care {{ background-color: #c2185b; }}
-                    .badge-stationery {{ background-color: #6a1b9a; }}
-                    .badge-leisure {{ background-color: #ad1457; }}
-                    .badge-souvenirs {{ background-color: #ef6c00; }}
-                    .badge-tax {{ background-color: #37474f; }}
-                    .badge-other {{ background-color: #616161; }}
-                    .recap-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-                    .stat-card {{ background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 20px; border-radius: 12px; }}
-                    .stat-card.accent-card {{ background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); }}
-                    .stat-label {{ font-size: 0.9rem; opacity: 0.8; }}
-                    .stat-value {{ font-size: 1.8rem; font-weight: 700; margin-top: 5px; }}
-                    .category-progress {{ margin-bottom: 20px; }}
-                    .progress-header {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
-                    .progress-bar-container {{ background-color: var(--border); height: 10px; border-radius: 5px; overflow: hidden; }}
-                    .progress-bar {{ height: 100%; border-radius: 5px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <header>
-                        <div class="logo">🇯🇵 Kanji-Kakei <span>. Dashboard</span></div>
-                        <div class="nav-tabs">
-                            <button class="tab-btn active" onclick="switchTab('analysis')">Receipt Analysis</button>
-                            <button class="tab-btn" onclick="switchTab('recap')">Monthly Summary Breakdown</button>
+                <main id="analysis" class="tab-content active">
+                    <div class="dashboard-grid">
+                        <!-- Left Column: Upload and Preview -->
+                        <div class="grid-col-left">
+                            <div class="card">
+                                <div class="card-title">📸 Upload & Process Receipt</div>
+                                <div id="dropzone" class="dropzone">
+                                    <div class="dropzone-content">
+                                        <span class="upload-icon">📥</span>
+                                        <p>Drag & drop receipt image or <strong>browse</strong></p>
+                                        <input type="file" id="fileInput" accept="image/*" style="display: none;" />
+                                    </div>
+                                </div>
+                                
+                                <div id="preview-container" class="preview-container" style="display: none;">
+                                    <img id="image-preview" src="" alt="Receipt Preview" />
+                                    <div class="actions">
+                                        <button id="btn-process" class="btn btn-accent">⚡ Process Receipt</button>
+                                        <button id="btn-cancel" class="btn btn-muted">Cancel</button>
+                                    </div>
+                                </div>
+                                
+                                <div id="processing-overlay" class="processing-overlay" style="display: none;">
+                                    <div class="spinner"></div>
+                                    <div class="processing-status">Analyzing receipt content...</div>
+                                    <div class="timer">Elapsed: <span id="timer-val">0.0</span>s</div>
+                                </div>
+                            </div>
+                            
+                            <div class="card" style="{image_card_style}">
+                                <div class="card-title">Processed Image Viewport</div>
+                                <div class="receipt-image-wrapper">
+                                    <img src="{last_receipt_image_url}" alt="Last Processed Receipt" class="receipt-img" />
+                                </div>
+                            </div>
                         </div>
-                    </header>
-
-                    <main id="analysis" class="tab-content active">
-                        <div class="grid-2">
+                        
+                        <!-- Right Column: Results -->
+                        <div class="grid-col-right">
                             <div class="card">
                                 <div class="card-title">Latest Receipt Metadata</div>
                                 <div class="receipt-summary">
                                     <div class="meta-item"><span class="label">Store Location</span><span class="value">{last_receipt_store}</span></div>
                                     <div class="meta-item"><span class="label">Transaction Date</span><span class="value">{last_receipt_date}</span></div>
                                     <div class="total-amount">Invoice Total: ¥{last_receipt_total:,.0f}</div>
+                                </div>
+                                <div class="savings-advice-box">
+                                    <div class="advice-title">💡 Financial Advice</div>
+                                    <p class="advice-text">"{last_savings_advice}"</p>
                                 </div>
                             </div>
                             <div class="card">
@@ -543,44 +637,140 @@ class ReceiptApp(ctk.CTk):
                                 </div>
                             </div>
                         </div>
-                    </main>
+                    </div>
+                </main>
 
-                    <main id="recap" class="tab-content">
-                        <div class="recap-grid">
-                            <div class="stat-card"><div class="stat-label">Total Cumulative Expenses</div><div class="stat-value">¥{total_global:,.0f}</div></div>
-                            <div class="stat-card accent-card"><div class="stat-label">Processed Receipts Count</div><div class="stat-value">{unique_receipts}</div></div>
-                            <div class="stat-card" style="background: #27ae60;"><div class="stat-label">Top Budget Allocation</div><div class="stat-value" style="font-size: 1.3rem;">{top_category} (¥{top_category_amount:,.0f})</div></div>
-                        </div>
-                        <div class="card">
-                            <div class="card-title">Budget Weight Distribution by Category</div>
-                            {categories_html}
-                        </div>
-                    </main>
-                </div>
+                <main id="recap" class="tab-content">
+                    <div class="recap-grid">
+                        <div class="stat-card"><div class="stat-label">Total Cumulative Expenses</div><div class="stat-value">¥{total_global:,.0f}</div></div>
+                        <div class="stat-card accent-card"><div class="stat-label">Processed Receipts Count</div><div class="stat-value">{unique_receipts}</div></div>
+                        <div class="stat-card" style="background: #27ae60;"><div class="stat-label">Top Budget Allocation</div><div class="stat-value" style="font-size: 1.3rem;">{top_category} (¥{top_category_amount:,.0f})</div></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Budget Weight Distribution by Category</div>
+                        {categories_html}
+                    </div>
+                </main>
+            </div>
 
-                <script>
-                    function switchTab(tabId) {{
-                        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                        document.getElementById(tabId).classList.add('active');
-                        event.currentTarget.classList.add('active');
+            <script>
+                function switchTab(tabId) {{
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.getElementById(tabId).classList.add('active');
+                    event.currentTarget.classList.add('active');
+                }}
+                
+                const dropzone = document.getElementById('dropzone');
+                const fileInput = document.getElementById('fileInput');
+                const previewContainer = document.getElementById('preview-container');
+                const imagePreview = document.getElementById('image-preview');
+                const btnProcess = document.getElementById('btn-process');
+                const btnCancel = document.getElementById('btn-cancel');
+                const processingOverlay = document.getElementById('processing-overlay');
+                const timerVal = document.getElementById('timer-val');
+                let selectedFile = null;
+                let timerInterval = null;
+
+                dropzone.addEventListener('click', () => fileInput.click());
+                dropzone.addEventListener('dragover', (e) => {{
+                    e.preventDefault();
+                    dropzone.classList.add('dragover');
+                }});
+                dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+                dropzone.addEventListener('drop', (e) => {{
+                    e.preventDefault();
+                    dropzone.classList.remove('dragover');
+                    if (e.dataTransfer.files.length > 0) {{
+                        handleFile(e.dataTransfer.files[0]);
                     }}
-                </script>
-            </body>
-            </html>
-            """
+                }});
 
-            # Save the runtime generated document onto the outputs directory
-            output_html_path = os.path.join(OUTPUT_DIR, "dashboard_kanji_kakei.html")
-            with open(output_html_path, "w", encoding="utf-8") as f:
-                f.write(html_template)
+                fileInput.addEventListener('change', (e) => {{
+                    if (e.target.files.length > 0) {{
+                        handleFile(e.target.files[0]);
+                    }}
+                }});
 
-            logger.info(f"HTML Insights Dashboard rendered successfully at: {output_html_path}")
-            webbrowser.open("file://" + os.path.realpath(output_html_path))
+                function handleFile(file) {{
+                    if (!file.type.startsWith('image/')) {{
+                        alert('Please select an image file.');
+                        return;
+                    }}
+                    selectedFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {{
+                        imagePreview.src = e.target.result;
+                        dropzone.style.display = 'none';
+                        previewContainer.style.display = 'block';
+                    }};
+                    reader.readAsDataURL(file);
+                }}
 
-        except Exception as err:
-            logger.error(f"Dashboard assembly module encountered a runtime error: {err}", exc_info=True)
-            messagebox.showerror("Dashboard Execution Error", f"Failed generating analytical HTML view:\n{err}")
+                btnCancel.addEventListener('click', () => {{
+                    selectedFile = null;
+                    dropzone.style.display = 'block';
+                    previewContainer.style.display = 'none';
+                    fileInput.value = '';
+                }});
+
+                btnProcess.addEventListener('click', () => {{
+                    if (!selectedFile) return;
+                    
+                    processingOverlay.style.display = 'flex';
+                    let startTime = Date.now();
+                    timerInterval = setInterval(() => {{
+                        let elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                        timerVal.textContent = elapsed;
+                    }}, 100);
+                    
+                    const reader = new FileReader();
+                    reader.onload = () => {{
+                        const payload = {{
+                            filename: selectedFile.name,
+                            image: reader.result
+                        }};
+                        
+                        fetch('/api/upload', {{
+                            method: 'POST',
+                            headers: {{
+                                'Content-Type': 'application/json'
+                            }},
+                            body: JSON.stringify(payload)
+                        }})
+                        .then(res => res.json())
+                        .then(data => {{
+                            clearInterval(timerInterval);
+                            if (data.success) {{
+                                window.location.reload();
+                            }} else {{
+                                processingOverlay.style.display = 'none';
+                                alert('Analysis failed: ' + (data.error || 'Unknown error'));
+                            }}
+                        }})
+                        .catch(err => {{
+                            clearInterval(timerInterval);
+                            processingOverlay.style.display = 'none';
+                            alert('Server error: ' + err.message);
+                        }});
+                    }};
+                    reader.readAsDataURL(selectedFile);
+                }});
+            </script>
+        </body>
+        </html>
+        """
+
+        # Save the runtime generated document onto the outputs directory
+        output_html_path = os.path.join(OUTPUT_DIR, "dashboard_kanji_kakei.html")
+        with open(output_html_path, "w", encoding="utf-8") as f:
+            f.write(html_template)
+
+        return True
+
+    except Exception as err:
+        logger.error(f"Dashboard assembly module encountered a runtime error: {err}", exc_info=True)
+        return False
 
 
 # =========================================================================
@@ -799,8 +989,122 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.destroy()
 
 
+# Server implementation and execution gateway
+server_running = False
+
+class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=os.getcwd(), **kwargs)
+
+    def do_GET(self):
+        if self.path == '/' or self.path == '/index.html':
+            self.send_response(302)
+            self.send_header('Location', '/outputs/dashboard_kanji_kakei.html')
+            self.end_headers()
+        else:
+            super().do_GET()
+
+    def do_POST(self):
+        if self.path == '/api/upload':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                # Parse JSON
+                data = json.loads(post_data.decode('utf-8'))
+                filename = data.get("filename", "uploaded_receipt.jpg")
+                image_data_url = data.get("image", "")
+                
+                if not image_data_url or "," not in image_data_url:
+                    raise ValueError("Invalid image data URL format")
+                
+                # Decode base64
+                header, base64_data = image_data_url.split(',', 1)
+                image_bytes = base64.b64decode(base64_data)
+                
+                # Save image
+                os.makedirs("receipts", exist_ok=True)
+                name, ext = os.path.splitext(filename)
+                unique_filename = f"{name}_{int(time.time())}{ext}"
+                save_path = os.path.join("receipts", unique_filename)
+                
+                with open(save_path, "wb") as f:
+                    f.write(image_bytes)
+                
+                logger.info(f"[Server] Saved uploaded receipt to: {save_path}")
+                
+                # Preprocess image
+                try:
+                    deskewed_np = deskew_and_crop(save_path)
+                    pil_img = opencv_to_pil(deskewed_np)
+                except Exception as e:
+                    logger.warning(f"[Server] Preprocessing failed: {e}. Using original image.")
+                    pil_img = Image.open(save_path).convert("RGB")
+                
+                # Run LLM parsing
+                parser = ReceiptParser()
+                response = parser.parse_receipt_image(pil_img)
+                
+                # Insert into DB and CSV
+                insert_receipt(response, save_path)
+                append_items_to_csv(response, save_path)
+                
+                # Regenerate dashboard HTML
+                generate_html_dashboard()
+                
+                # Trigger GUI refresh if active
+                try:
+                    if 'app' in globals() and app:
+                        app.after(0, app.refresh_history_table)
+                except Exception as gui_err:
+                    logger.debug(f"Could not refresh GUI: {gui_err}")
+                
+                # Send success response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                
+                success_response = {
+                    "success": True,
+                    "data": response
+                }
+                self.wfile.write(json.dumps(success_response).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"[Server] API processing error: {e}", exc_info=True)
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                error_response = {
+                    "success": False,
+                    "error": str(e)
+                }
+                self.wfile.write(json.dumps(error_response).encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+def start_web_server():
+    server_address = ('', 8000)
+    class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+        allow_reuse_address = True
+        
+    def run_server():
+        global server_running
+        try:
+            httpd = ThreadingHTTPServer(server_address, DashboardHTTPRequestHandler)
+            server_running = True
+            logger.info("[Server] Local dashboard web server running on http://localhost:8000/")
+            httpd.serve_forever()
+        except Exception as e:
+            logger.error(f"[Server] Failed to start local web server: {e}")
+            
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
+
 # Main execution gateway
 if __name__ == "__main__":
     logger.info("Starting Kanji-Kakei main graphical window lifecycle...")
+    start_web_server()
     app = ReceiptApp()
     app.mainloop()
