@@ -2,7 +2,7 @@ import os
 import time
 import logging
 import threading
-import webbrowser  # ADDED: To open the interactive HTML Dashboard
+import webbrowser  # To open the interactive HTML Dashboard
 from datetime import datetime
 from collections import defaultdict
 
@@ -35,6 +35,14 @@ def sorted_categories(categories) -> list:
     known = [c for c in CATEGORY_ORDER if c in categories]
     unknown = sorted(c for c in categories if c not in CATEGORY_ORDER)
     return known + unknown
+
+
+def safe_int(value) -> int:
+    """Best-effort conversion of a CSV/JSON price field to an int for display/summing."""
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
 
 
 class ReceiptApp(ctk.CTk):
@@ -92,7 +100,7 @@ class ReceiptApp(ctk.CTk):
         )
         self.btn_scan.pack(padx=20, pady=10, fill="x")
 
-        # CHANGED: This button now launches the beautiful interactive HTML Dashboard instead of a raw view
+        # This button launches the interactive HTML Dashboard
         self.btn_export = ctk.CTkButton(
             self.sidebar,
             text="📊 Open Interactive Dashboard",
@@ -213,10 +221,10 @@ class ReceiptApp(ctk.CTk):
         self.processing_thread.start()
 
     def execute_analysis_pipeline(self):
-        """Core asynchronous sequencing processing pipeline executor block handles CV + LLM engine stages."""
+        """Core asynchronous processing pipeline executor: handles CV + LLM engine stages."""
         start_time = time.time()
         filename = os.path.basename(self.current_image_path)
-        logger.info(f"Starting analysis orchestration pipeline for file: {filename}")
+        logger.info(f"Starting analysis pipeline for file: {filename}")
 
         try:
             # Phase 1: Computer Vision geometric corrections
@@ -230,26 +238,26 @@ class ReceiptApp(ctk.CTk):
             parsed_structured_receipt = parser_engine.parse_receipt_image(pil_ready_asset)
 
             elapsed = time.time() - start_time
-            logger.info(f"Successfully processed analysis matching data content arrays inside {elapsed:.2f}s")
+            logger.info(f"Successfully processed receipt in {elapsed:.2f}s")
 
-            # Queue back UI callback invocation onto master main event thread safe handler loop context
+            # Queue back UI callback invocation onto the main event thread
             self.after(0, self.handle_pipeline_success, parsed_structured_receipt)
 
         except Exception as error_exception:
-            logger.error(f"Critical execution crash triggered during pipeline run: {error_exception}", exc_info=True)
+            logger.error(f"Critical execution crash during pipeline run: {error_exception}", exc_info=True)
             self.after(0, self.handle_pipeline_fault, str(error_exception))
 
     def update_status_safe(self, status_msg: str, text_hex_color: str):
-        """Helper callback thread-safely updating state context string tracking labels inside window."""
+        """Helper callback thread-safely updating the status label inside the window."""
         self.after(0, lambda: self.status_label.configure(text=status_msg, text_color=text_hex_color))
 
     def handle_pipeline_success(self, structured_receipt):
-        """Callback handles pipeline successful completion. Prompt user validation modal popup frame."""
+        """Callback on pipeline success. Prompts the user validation modal popup."""
         self.btn_scan.configure(state="normal", text="✨ Run OCR & Analysis")
         self.btn_browse.configure(state="normal")
         self.status_label.configure(text="Analysis complete!", text_color="#2ecc71")
 
-        logger.debug("Launching interactive verification review review sub-menu framework overlay modal...")
+        logger.debug("Launching interactive verification review sub-menu modal...")
         review_modal = ReceiptReviewWindow(self, structured_receipt, self.on_receipt_verified)
         review_modal.grab_set()  # Lock focus interaction onto child dialog exclusively
 
@@ -266,9 +274,9 @@ class ReceiptApp(ctk.CTk):
         )
 
     def on_receipt_verified(self, final_verified_receipt):
-        """Invoked when user confirms verification editor panel entries updates database/CSV sheets."""
+        """Invoked when user confirms verification editor. Updates database/CSV storage."""
         try:
-            logger.info("Saving user-validated structured invoice data items back into local storage arrays...")
+            logger.info("Saving user-validated structured invoice data back into local storage...")
 
             # Write transaction history into relational DB and CSV files
             insert_receipt(final_verified_receipt)
@@ -280,10 +288,10 @@ class ReceiptApp(ctk.CTk):
 
         except Exception as db_err:
             logger.error(f"Failed updating historical records storage layers: {db_err}", exc_info=True)
-            messagebox.showerror("Storage Core Failure", f"Failed appending items to history index database:\n{db_err}")
+            messagebox.showerror("Storage Core Failure", f"Failed appending items to history database:\n{db_err}")
 
     def refresh_history_table(self):
-        """Load items dataset index array from disk and format plain text visual table spreadsheet."""
+        """Load items dataset from disk and format a plain-text table."""
         self.history_textbox.configure(state="normal")
         self.history_textbox.delete("1.0", "end")
 
@@ -302,30 +310,30 @@ class ReceiptApp(ctk.CTk):
             self.history_textbox.insert("end", divider)
 
             for item in all_records:
-                # Safely truncate overly broad text parameters to protect terminal columns boundaries
-                store = item.get("store", "Unknown")[:16]
-                orig = item.get("original_text", "")[:20]
-                trans = item.get("translation", "")[:32]
-                cat = item.get("category", "Other")[:13]
+                # Safely truncate overly broad text parameters to protect terminal column boundaries
+                store = (item.get("store_name") or "Unknown")[:16]
+                orig = (item.get("japanese_name") or "")[:20]
+                trans = (item.get("english_name") or "")[:32]
+                cat = (item.get("category") or "Other")[:13]
 
                 row_line = (
-                    f"{item.get('date', 'N/A'):<12} | "
+                    f"{(item.get('date') or 'N/A'):<12} | "
                     f"{store:<18} | "
                     f"{orig:<22} | "
                     f"{trans:<35} | "
                     f"{cat:<15} | "
-                    f"¥{item.get('price', 0):<8}\n"
+                    f"¥{safe_int(item.get('price')):<8}\n"
                 )
                 self.history_textbox.insert("end", row_line)
 
         except Exception as read_err:
-            logger.error(f"Failed loading values inside history textbox UI wrapper panel: {read_err}")
-            self.history_textbox.insert("1.0", f"Error rendering dataset storage tables stream index:\n{read_err}")
+            logger.error(f"Failed loading values inside history textbox UI panel: {read_err}")
+            self.history_textbox.insert("1.0", f"Error rendering dataset storage tables:\n{read_err}")
 
         self.history_textbox.configure(state="disabled")
 
     # =========================================================================
-    # ADDED: GENERATE AND OPEN INTERACTIVE HTML DASHBOARD (ENGLISH IMPLEMENTATION)
+    # GENERATE AND OPEN INTERACTIVE HTML DASHBOARD
     # =========================================================================
     def open_html_dashboard(self):
         """Generates a comprehensive HTML dashboard with two main view tabs
@@ -342,16 +350,13 @@ class ReceiptApp(ctk.CTk):
 
             # 1. Financial Analytics Compilation for Tab 2 (Global Recap)
             total_global = 0
-            unique_receipts = len(set(r.get("date", "") + r.get("store", "") for r in records))
+            unique_receipts = len(set((r.get("date") or "") + (r.get("store_name") or "") for r in records))
             category_totals = defaultdict(float)
 
             for r in records:
-                try:
-                    price = float(r.get("price", 0))
-                except ValueError:
-                    price = 0.0
+                price = float(safe_int(r.get("price")))
                 total_global += price
-                cat = r.get("category", "Other").strip().capitalize()
+                cat = (r.get("category") or "Other").strip().capitalize()
                 category_totals[cat] += price
 
             # Determine largest spending cluster
@@ -400,25 +405,23 @@ class ReceiptApp(ctk.CTk):
                 """
 
             # 2. Extract Data Rows for Tab 1 (Most Recent Receipt Analysis Viewport)
-            last_receipt_date = records[-1].get("date", "Unknown")
-            last_receipt_store = records[-1].get("store", "Unknown")
+            last_receipt_date = records[-1].get("date") or "Unknown"
+            last_receipt_store = records[-1].get("store_name") or "Unknown"
             receipt_items_html = ""
             last_receipt_total = 0
 
             # Match and safely bundle all entry items belonging to the same transaction
             for r in records:
-                if r.get("date") == last_receipt_date and r.get("store") == last_receipt_store:
-                    try:
-                        price = float(r.get("price", 0))
-                    except ValueError:
-                        price = 0.0
+                if (r.get("date") == records[-1].get("date")
+                        and r.get("store_name") == records[-1].get("store_name")):
+                    price = float(safe_int(r.get("price")))
                     last_receipt_total += price
-                    badge_class = r.get("category", "Other").lower().replace(" & ", "-")
+                    badge_class = (r.get("category") or "Other").lower().replace(" & ", "-")
 
                     receipt_items_html += f"""
                     <tr>
-                        <td><span class="jp-text">{r.get('original_text', '')}</span></td>
-                        <td>{r.get('translation', '')}</td>
+                        <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
+                        <td>{r.get('english_name', '')}</td>
                         <td><span class="badge badge-{badge_class}">{r.get('category', 'Other')}</span></td>
                         <td><strong>¥{price:,.0f}</strong></td>
                     </tr>
@@ -548,7 +551,7 @@ class ReceiptApp(ctk.CTk):
             </html>
             """
 
-            # Save the runtime generated document stream onto the asset workspace disk directory path
+            # Save the runtime generated document onto the outputs directory
             output_html_path = os.path.join(OUTPUT_DIR, "dashboard_kanji_kakei.html")
             with open(output_html_path, "w", encoding="utf-8") as f:
                 f.write(html_template)
@@ -558,7 +561,7 @@ class ReceiptApp(ctk.CTk):
 
         except Exception as err:
             logger.error(f"Dashboard assembly module encountered a runtime error: {err}", exc_info=True)
-            messagebox.showerror("Dashboard Execution Error", f"Failed generating custom analytical HTML framework view:\n{err}")
+            messagebox.showerror("Dashboard Execution Error", f"Failed generating analytical HTML view:\n{err}")
 
 
 # =========================================================================
@@ -571,12 +574,14 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.parent_window = parent_window
         self.on_save_callback = on_save_callback
 
-        # De-serialize working data copy structures to avoid editing immutable payloads directly
+        # De-serialize a working data copy to avoid editing the payload directly.
+        # NOTE: keys here match the pipeline's schema (store_name / total_amount /
+        # tax_amount), which is what ReceiptParser actually returns.
         self.receipt_meta = {
-            "store": raw_receipt_data.get("store", "Unknown Store"),
+            "store_name": raw_receipt_data.get("store_name", "Unknown Store"),
             "date": raw_receipt_data.get("date", datetime.now().strftime("%Y-%m-%d")),
-            "total": raw_receipt_data.get("total", 0),
-            "taxes": raw_receipt_data.get("taxes", 0),
+            "total_amount": raw_receipt_data.get("total_amount", 0),
+            "tax_amount": raw_receipt_data.get("tax_amount", 0),
         }
         self.items_list = list(raw_receipt_data.get("items", []))
 
@@ -600,7 +605,7 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         """Build top contextual layout row providing quick guidance to the user."""
         self.lbl_header = ctk.CTkLabel(
             self,
-            text="Double check data entries extracted by the LLM system architecture below before validating saving workflows:",
+            text="Double check data entries extracted by the LLM below before saving:",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#3498db",
             anchor="w",
@@ -620,7 +625,7 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         ctk.CTkLabel(self.left_panel, text="Store Name (Original/Translated):").pack(padx=15, pady=(5, 0), anchor="w")
         self.ent_store = ctk.CTkEntry(self.left_panel)
         self.ent_store.pack(padx=15, pady=(0, 10), fill="x")
-        self.ent_store.insert(0, self.receipt_meta["store"])
+        self.ent_store.insert(0, self.receipt_meta["store_name"])
 
         # Field 2: Transaction timestamp date string anchor
         ctk.CTkLabel(self.left_panel, text="Transaction Date (YYYY-MM-DD):").pack(padx=15, pady=(5, 0), anchor="w")
@@ -632,16 +637,16 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         ctk.CTkLabel(self.left_panel, text="Grand Total Price (¥):").pack(padx=15, pady=(5, 0), anchor="w")
         self.ent_total = ctk.CTkEntry(self.left_panel)
         self.ent_total.pack(padx=15, pady=(0, 10), fill="x")
-        self.ent_total.insert(0, str(self.receipt_meta["total"]))
+        self.ent_total.insert(0, str(self.receipt_meta["total_amount"]))
 
         # Field 4: Internal consumption tax reference estimation
         ctk.CTkLabel(self.left_panel, text="Included Duty Taxes (¥):").pack(padx=15, pady=(5, 0), anchor="w")
         self.ent_taxes = ctk.CTkEntry(self.left_panel)
         self.ent_taxes.pack(padx=15, pady=(0, 15), fill="x")
-        self.ent_taxes.insert(0, str(self.receipt_meta["taxes"]))
+        self.ent_taxes.insert(0, str(self.receipt_meta["tax_amount"]))
 
     def render_right_items_table(self):
-        """Embed an editor panel mapping rows for each singular parsed product inside table matrix."""
+        """Embed an editor panel mapping rows for each parsed product."""
         self.right_panel = ctk.CTkFrame(self, corner_radius=8)
         self.right_panel.grid(row=1, column=1, sticky="nsew", padx=(10, 20), pady=10)
 
@@ -649,7 +654,7 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
             row=0, column=0, columnspan=4, padx=15, pady=(15, 10), sticky="w"
         )
 
-        # Generate table header cells row elements layout matrices descriptions labels inline manually
+        # Generate table header cell labels
         headers = ["Original Item Text", "Translation / Meaning", "Category Choice", "Price"]
         for idx, col_title in enumerate(headers):
             lbl = ctk.CTkLabel(self.right_panel, text=col_title, font=ctk.CTkFont(size=11, weight="bold"), text_color="#888888")
@@ -664,28 +669,31 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.right_panel.grid_columnconfigure(2, weight=1)
         self.right_panel.grid_columnconfigure(3, weight=1)
 
-        # Allocate and fill dynamic cell rows elements matching input structured indices loops
+        # Allocate and fill dynamic cell rows matching the input structure.
+        # NOTE: item fields here match the pipeline's schema (japanese_name /
+        # english_name), which is what was previously read with the wrong keys
+        # and caused the sub-window text to be blank.
         self.row_widget_bindings = []
         for index, item in enumerate(self.items_list):
-            # Column 0: Original OCR Text field block mapping
+            # Column 0: Original OCR (Japanese) text
             entry_ocr = ctk.CTkEntry(self.scroll_table, font=ctk.CTkFont(size=12))
             entry_ocr.grid(row=index, column=0, padx=4, pady=4, sticky="ew")
-            entry_ocr.insert(0, item.get("original_text", ""))
+            entry_ocr.insert(0, item.get("japanese_name", ""))
 
-            # Column 1: Core translation block mapping
+            # Column 1: English translation
             entry_trans = ctk.CTkEntry(self.scroll_table, font=ctk.CTkFont(size=12))
             entry_trans.grid(row=index, column=1, padx=4, pady=4, sticky="ew")
-            entry_trans.insert(0, item.get("translation", ""))
+            entry_trans.insert(0, item.get("english_name", ""))
 
-            # Column 2: Structural option menu category configurations list box mapping
+            # Column 2: Category option menu
             opt_cat = ctk.CTkOptionMenu(self.scroll_table, values=CATEGORY_ORDER, font=ctk.CTkFont(size=11))
             opt_cat.grid(row=index, column=2, padx=4, pady=4, sticky="ew")
-            current_cat = item.get("category", "Other").strip()
+            current_cat = (item.get("category") or "Other").strip()
             if current_cat not in CATEGORY_ORDER:
                 current_cat = "Other"
             opt_cat.set(current_cat)
 
-            # Column 3: Localized product base cost mapping element row cell string value entry template fields bounds
+            # Column 3: Price
             entry_price = ctk.CTkEntry(self.scroll_table, width=65, font=ctk.CTkFont(size=12))
             entry_price.grid(row=index, column=3, padx=4, pady=4, sticky="ew")
             entry_price.insert(0, str(item.get("price", 0)))
@@ -695,13 +703,13 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
             self.scroll_table.grid_columnconfigure(2, weight=1)
             self.scroll_table.grid_columnconfigure(3, weight=1)
 
-            # Keep system binding handles references tracker inside active memory list structures
+            # Keep widget handle references in an active memory list
             self.row_widget_bindings.append(
                 {"ocr": entry_ocr, "translation": entry_trans, "category": opt_cat, "price": entry_price}
             )
 
     def render_bottom_action_bar(self):
-        """Construct lower button controls grid row wrapper panel context properties setup rules."""
+        """Construct lower button controls grid row wrapper panel."""
         self.bottom_bar = ctk.CTkFrame(self, height=60, fg_color="transparent")
         self.bottom_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=20, pady=(10, 20))
 
@@ -722,18 +730,19 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.btn_abort.pack(side="left", padx=10)
 
     def on_confirm_save(self):
-        """Fetch updated field variables input records data sets blocks, running types sanitization steps validation matches."""
+        """Fetch updated field values, sanitize types, and emit a receipt dict in the
+        pipeline's schema so insert_receipt() and append_items_to_csv() store it correctly."""
         try:
-            # 1. Collect global data definitions parameters bounds safely
+            # 1. Collect global fields, keyed to match the DB/CSV layers
             validated_receipt = {
-                "store": self.ent_store.get().strip() or "Unknown Store",
+                "store_name": self.ent_store.get().strip() or "Unknown Store",
                 "date": self.ent_date.get().strip() or datetime.now().strftime("%Y-%m-%d"),
-                "total": int(self.ent_total.get().strip() or 0),
-                "taxes": int(self.ent_taxes.get().strip() or 0),
+                "total_amount": int(self.ent_total.get().strip() or 0),
+                "tax_amount": int(self.ent_taxes.get().strip() or 0),
                 "items": [],
             }
 
-            # 2. Iterate list loops pulling subcell item entries matrices indices data lines values fields properties
+            # 2. Pull each item row's values
             for binding in self.row_widget_bindings:
                 try:
                     price_val = int(binding["price"].get().strip() or 0)
@@ -741,29 +750,29 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
                     price_val = 0
 
                 item_row = {
-                    "original_text": binding["ocr"].get().strip(),
-                    "translation": binding["translation"].get().strip(),
+                    "japanese_name": binding["ocr"].get().strip(),
+                    "english_name": binding["translation"].get().strip(),
                     "category": binding["category"].get(),
                     "price": price_val,
                 }
                 validated_receipt["items"].append(item_row)
 
             logger.debug(
-                f"Validation parse pass successfully generated with {len(validated_receipt['items'])} mapped rows items records matches."
+                f"Validation pass generated {len(validated_receipt['items'])} item rows."
             )
 
-            # Fire execution callback back to master window scope controller references bindings
+            # Fire execution callback back to the master window controller
             self.on_save_callback(validated_receipt)
             self.destroy()
 
         except ValueError as parse_format_err:
-            logger.warning(f"User submitted un-parseable alphanumeric formatting properties values bounds: {parse_format_err}")
+            logger.warning(f"User submitted un-parseable numeric value: {parse_format_err}")
             messagebox.showerror(
                 "Format Input Error",
-                f"Please verify total prices and tax values contain strictly rounded integer digits symbols formats:\n{parse_format_err}",
+                f"Please verify total price and tax values are whole integers:\n{parse_format_err}",
             )
         except Exception as general_err:
-            logger.error(f"Failed marshalling data validation structures blocks row elements compilation: {general_err}")
+            logger.error(f"Failed marshalling data validation structures: {general_err}")
 
     def on_cancel(self):
         """Close the sub-menu without saving anything."""
@@ -771,8 +780,8 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.destroy()
 
 
-# Main execution gateway bootstrap block hook definitions routines bindings setup
+# Main execution gateway
 if __name__ == "__main__":
-    logger.info("Starting Kanji-Kakei main graphical window lifecycle wrapper sequence loop app instance...")
+    logger.info("Starting Kanji-Kakei main graphical window lifecycle...")
     app = ReceiptApp()
     app.mainloop()
