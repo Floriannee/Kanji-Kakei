@@ -376,29 +376,13 @@ def generate_html_dashboard() -> bool:
             cat = (r.get("category") or "Other").strip()
             category_totals[cat] += price
 
-        # Determine largest spending cluster
+        # Sort categories by total spending in descending order
+        sorted_by_spending = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
         top_category = "None"
         top_category_amount = 0
-        if category_totals:
-            top_category = max(category_totals, key=category_totals.get)
-            top_category_amount = category_totals[top_category]
-
-        # Build HTML UI components for the category metrics bars
-        categories_html = ""
-        category_icons = {
-            "Groceries": "🛒",
-            "Drink": "🥤",
-            "Snack": "🍿",
-            "Dining Out": "🍜",
-            "Daily Essentials": "🏠",
-            "Clothes": "👕",
-            "Personal Care": "💅",
-            "Stationery": "✏️",
-            "Leisure": "🎮",
-            "Souvenirs": "🎁",
-            "Tax": "💸",
-            "Other": "📦",
-        }
+        if sorted_by_spending:
+            top_category = sorted_by_spending[0][0]
+            top_category_amount = sorted_by_spending[0][1]
         category_colors = {
             "Groceries": "#0d47a1",
             "Drink": "#1565c0",
@@ -414,15 +398,14 @@ def generate_html_dashboard() -> bool:
             "Other": "#616161",
         }
 
-        for cat in sorted_categories(category_totals.keys()):
-            amount = category_totals[cat]
+        categories_html = ""
+        for cat, amount in sorted_by_spending:
             percentage = (amount / total_global * 100) if total_global > 0 else 0
-            icon = category_icons.get(cat, "📦")
             color = category_colors.get(cat, "#616161")
             categories_html += f"""
             <div class="category-progress">
                 <div class="progress-header">
-                    <span>{icon} {cat}</span>
+                    <span>{cat}</span>
                     <strong>¥{amount:,.0f} ({percentage:.1f}%)</strong>
                 </div>
                 <div class="progress-bar-container">
@@ -504,7 +487,7 @@ def generate_html_dashboard() -> bool:
                 .dropzone {{ border: 2px dashed var(--accent); border-radius: 8px; background: #fdfdfd; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 10px; }}
                 .dropzone:hover, .dropzone.dragover {{ background: #f0f7ff; border-color: var(--accent-hover); }}
                 .dropzone-content {{ display: flex; flex-direction: column; align-items: center; gap: 10px; }}
-                .upload-icon {{ font-size: 2rem; }}
+                .upload-icon {{ font-size: 2rem; color: var(--accent); }}
                 
                 .preview-container {{ text-align: center; }}
                 .preview-container img {{ max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
@@ -565,7 +548,7 @@ def generate_html_dashboard() -> bool:
         <body>
             <div class="container">
                 <header>
-                    <div class="logo">🇯🇵 Kanji-Kakei <span>. Dashboard</span></div>
+                    <div class="logo">Kanji-Kakei <span>. Dashboard</span></div>
                     <div class="nav-tabs">
                         <button class="tab-btn active" onclick="switchTab('analysis')">Receipt Analysis</button>
                         <button class="tab-btn" onclick="switchTab('recap')">Monthly Summary Breakdown</button>
@@ -577,10 +560,10 @@ def generate_html_dashboard() -> bool:
                         <!-- Left Column: Upload and Preview -->
                         <div class="grid-col-left">
                             <div class="card">
-                                <div class="card-title">📸 Upload & Process Receipt</div>
+                                <div class="card-title">Upload & Process Receipt</div>
                                 <div id="dropzone" class="dropzone">
                                     <div class="dropzone-content">
-                                        <span class="upload-icon">📥</span>
+                                        <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; color: var(--accent);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                                         <p>Drag & drop receipt image or <strong>browse</strong></p>
                                         <input type="file" id="fileInput" accept="image/*" style="display: none;" />
                                     </div>
@@ -589,7 +572,7 @@ def generate_html_dashboard() -> bool:
                                 <div id="preview-container" class="preview-container" style="display: none;">
                                     <img id="image-preview" src="" alt="Receipt Preview" />
                                     <div class="actions">
-                                        <button id="btn-process" class="btn btn-accent">⚡ Process Receipt</button>
+                                        <button id="btn-process" class="btn btn-accent">Process Receipt</button>
                                         <button id="btn-cancel" class="btn btn-muted">Cancel</button>
                                     </div>
                                 </div>
@@ -619,7 +602,7 @@ def generate_html_dashboard() -> bool:
                                     <div class="total-amount">Invoice Total: ¥{last_receipt_total:,.0f}</div>
                                 </div>
                                 <div class="savings-advice-box">
-                                    <div class="advice-title">💡 Financial Advice</div>
+                                    <div class="advice-title">Financial Advice</div>
                                     <p class="advice-text">"{last_savings_advice}"</p>
                                 </div>
                             </div>
