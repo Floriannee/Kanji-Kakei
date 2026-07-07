@@ -16,8 +16,8 @@ from PIL import Image
 
 # Config and Modules import
 from config.settings import OUTPUT_DIR
-from database.db_manager import init_db, insert_receipt
-from database.csv_manager import init_csv, append_items_to_csv, load_all_items
+from database.db_manager import init_db, insert_receipt, delete_receipt_records, delete_single_item_records
+from database.csv_manager import init_csv, append_items_to_csv, load_all_items, delete_items_from_csv, delete_single_item_from_csv
 from utils.image_processing import deskew_and_crop, opencv_to_pil
 from inference.pipeline import ReceiptParser
 
@@ -286,13 +286,23 @@ class ReceiptApp(ctk.CTk):
         try:
             logger.info("Saving user-validated structured invoice data back into local storage...")
 
+            # Overwrite if duplicate to allow viewing without double counting
+            is_dup = is_duplicate_receipt(final_verified_receipt)
+            if is_dup:
+                logger.info("Duplicate receipt detected. Overwriting existing record.")
+                delete_receipt_records(final_verified_receipt.get("date"), final_verified_receipt.get("store_name"))
+                delete_items_from_csv(final_verified_receipt.get("date"), final_verified_receipt.get("store_name"))
+
             # Write transaction history into relational DB and CSV files
             insert_receipt(final_verified_receipt, self.current_image_path or "")
             append_items_to_csv(final_verified_receipt, self.current_image_path or "")
 
             # Re-sync list tables views on screen
             self.refresh_history_table()
-            messagebox.showinfo("Success", "Receipt data successfully verified and saved to history!")
+            if is_dup:
+                messagebox.showinfo("Success", "Receipt is already in history. Updated view without double counting!")
+            else:
+                messagebox.showinfo("Success", "Receipt data successfully verified and saved to history!")
 
         except Exception as db_err:
             logger.error(f"Failed updating historical records storage layers: {db_err}", exc_info=True)
@@ -322,7 +332,12 @@ class ReceiptApp(ctk.CTk):
                 store = (item.get("store_name") or "Unknown")[:16]
                 orig = (item.get("japanese_name") or "")[:20]
                 trans = (item.get("english_name") or "")[:32]
-                cat = (item.get("category") or "Other")[:13]
+                
+                is_change = "change" in (item.get('english_name') or '').lower() or "change" in (item.get('japanese_name') or '').lower() or (item.get('category') or '').lower() == 'change'
+                if is_change:
+                    cat = "Change"
+                else:
+                    cat = (item.get("category") or "Other")[:13]
 
                 row_line = (
                     f"{(item.get('date') or 'N/A'):<12} | "
@@ -356,94 +371,150 @@ class ReceiptApp(ctk.CTk):
             )
 
 
-def generate_html_dashboard() -> bool:
-    """Generates a comprehensive HTML dashboard and saves it in OUTPUT_DIR.
-    Returns True on success, False if no records are available.
-    """
+def is_duplicate_receipt(receipt_data: dict) -> bool:
+    """Check if the receipt already exists in the CSV ledger to avoid double scanning."""
     try:
         records = load_all_items()
         if not records:
             return False
-
-        # 1. Financial Analytics Compilation for Tab 2 (Global Recap)
-        total_global = 0
-        unique_receipts = len(set((r.get("date") or "") + (r.get("store_name") or "") for r in records))
-        category_totals = defaultdict(float)
-
-        for r in records:
-            price = float(safe_int(r.get("price")))
-            total_global += price
-            cat = (r.get("category") or "Other").strip()
-            category_totals[cat] += price
-
-        # Sort categories by total spending in descending order
-        sorted_by_spending = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
-        top_category = "None"
-        top_category_amount = 0
-        if sorted_by_spending:
-            top_category = sorted_by_spending[0][0]
-            top_category_amount = sorted_by_spending[0][1]
-        category_colors = {
-            "Groceries": "#0d47a1",
-            "Drink": "#1565c0",
-            "Snack": "#ff8f00",
-            "Dining Out": "#e64a19",
-            "Daily Essentials": "#2e7d32",
-            "Clothes": "#00838f",
-            "Personal Care": "#c2185b",
-            "Stationery": "#6a1b9a",
-            "Leisure": "#ad1457",
-            "Souvenirs": "#ef6c00",
-            "Tax": "#37474f",
-            "Other": "#616161",
-        }
-
-        categories_html = ""
-        for cat, amount in sorted_by_spending:
-            percentage = (amount / total_global * 100) if total_global > 0 else 0
-            color = category_colors.get(cat, "#616161")
-            categories_html += f"""
-            <div class="category-progress">
-                <div class="progress-header">
-                    <span>{cat}</span>
-                    <strong>¥{amount:,.0f} ({percentage:.1f}%)</strong>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {percentage}%; background-color: {color};"></div>
-                </div>
-            </div>
-            """
-
-        # 2. Extract Data Rows for Tab 1 (Most Recent Receipt Analysis Viewport)
-        last_receipt_date = records[-1].get("date") or "Unknown"
-        last_receipt_store = records[-1].get("store_name") or "Unknown"
-        last_receipt_image_path = records[-1].get("image_path") or ""
-        last_savings_advice = records[-1].get("savings_advice") or "No advice available."
         
-        last_receipt_image_url = ""
-        if last_receipt_image_path:
-            last_receipt_image_url = "/receipts/" + os.path.basename(last_receipt_image_path)
-            
-        image_card_style = "" if last_receipt_image_url else "display: none;"
-        receipt_items_html = ""
-        last_receipt_total = 0
-
-        # Match and safely bundle all entry items belonging to the same transaction
+        store_name = receipt_data.get("store_name", "Unknown Store")
+        total_amount = receipt_data.get("total_amount", 0)
+        receipt_date = receipt_data.get("date")
+        items = receipt_data.get("items", [])
+        
+        # Group records by transaction (represented by date + store_name + total)
+        transactions = defaultdict(list)
         for r in records:
-            if (r.get("date") == records[-1].get("date")
-                    and r.get("store_name") == records[-1].get("store_name")):
-                price = float(safe_int(r.get("price")))
-                last_receipt_total += price
-                badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
+            key = (r.get("date"), r.get("store_name"), r.get("receipt_total"))
+            transactions[key].append(r)
+            
+        # Compare with each existing transaction
+        for (date, store, total), t_items in transactions.items():
+            # Check store name and total amount first
+            if store == store_name and safe_int(total) == total_amount:
+                # If both have parsed dates, compare dates (including hours/minutes)
+                if receipt_date and date:
+                    if receipt_date != date:
+                        continue
+                # Compare the number of items
+                if len(t_items) == len(items):
+                    # Compare items prices and names
+                    match_count = 0
+                    for item in items:
+                        for t_item in t_items:
+                            if t_item.get("japanese_name") == item.get("japanese_name") and safe_int(t_item.get("price")) == item.get("price"):
+                                match_count += 1
+                                break
+                    if match_count == len(items):
+                        return True
+        return False
+    except Exception as e:
+        logger.error(f"Error checking duplicate receipt: {e}")
+        return False
 
+
+def generate_html_dashboard() -> bool:
+    """Generates a comprehensive HTML dashboard and saves it in OUTPUT_DIR.
+    Returns True on success, False on error.
+    """
+    try:
+        records = load_all_items()
+        
+        if not records:
+            last_receipt_date = "N/A"
+            last_receipt_store = "No Scanned Receipts"
+            last_receipt_image_path = ""
+            last_savings_advice = "Upload your first receipt using the dropzone on the left to get started!"
+            last_receipt_total = 0
+            last_receipt_tax = 0
+            last_receipt_tax_type = "included"
+            receipt_items_html = """
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    No items. Scan or upload a receipt to get started!
+                </td>
+            </tr>
+            """
+            image_card_style = "display: none;"
+            last_receipt_image_url = ""
+        else:
+            # Extract values for the initial rendering of Tab 1 (Most Recent Receipt Analysis Viewport)
+            last_receipt_date = records[-1].get("date") or "Unknown"
+            last_receipt_store = records[-1].get("store_name") or "Unknown"
+            last_receipt_image_path = records[-1].get("image_path") or ""
+            last_savings_advice = records[-1].get("savings_advice") or "No advice available."
+            last_receipt_tax = float(safe_int(records[-1].get("tax_amount") or 0))
+            last_receipt_tax_type = records[-1].get("tax_type") or "included"
+            
+            last_receipt_image_url = ""
+            if last_receipt_image_path:
+                last_receipt_image_url = "/receipts/" + os.path.basename(last_receipt_image_path)
+                
+            image_card_style = "" if last_receipt_image_url else "display: none;"
+            receipt_items_html = ""
+            last_receipt_total = 0
+
+            # Match and safely bundle all entry items belonging to the same transaction
+            target_image = records[-1].get("image_path") or ""
+            target_date = records[-1].get("date") or ""
+            target_store = records[-1].get("store_name") or ""
+
+            for r in records:
+                is_match = False
+                if target_image and r.get("image_path") == target_image:
+                    is_match = True
+                elif not target_image and r.get("date") == target_date and r.get("store_name") == target_store:
+                    is_match = True
+
+                if is_match:
+                    price = float(safe_int(r.get("price")))
+                    qty = int(safe_int(r.get("quantity") or 1))
+                    last_receipt_total += price * qty
+                    badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
+
+                    note_html = ""
+                    if r.get("note"):
+                        note_html = f"<br><small style='color: var(--text-muted); font-size: 0.85rem; font-style: italic;'>{r.get('note')}</small>"
+
+                    escaped_store = r.get('store_name', '').replace("'", "\\'")
+                    escaped_jp = r.get('japanese_name', '').replace("'", "\\'")
+                    escaped_eng = r.get('english_name', '').replace("'", "\\'")
+
+                    is_change = "change" in r.get('english_name', '').lower() or "change" in r.get('japanese_name', '').lower() or r.get('category', '').lower() == 'change'
+                    if is_change:
+                        category_html = '<span class="badge badge-change">Change</span>'
+                    else:
+                        category_html = f'<span class="badge badge-{badge_class}">{r.get("category", "Other")}</span>'
+
+                    qty = int(safe_int(r.get("quantity") or 1))
+                    receipt_items_html += f"""
+                    <tr>
+                        <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
+                        <td><strong>{r.get('english_name', '')}</strong>{note_html}</td>
+                        <td>{category_html}</td>
+                        <td class="item-price-cell" data-jpy="{price}"><strong>¥{price:,.0f}</strong></td>
+                        <td style="text-align: center; font-weight: 600; color: var(--primary);">{qty}</td>
+                        <td>
+                            <button onclick="deleteSingleItem('{r.get('date')}', '{escaped_store}', '{escaped_jp}', '{escaped_eng}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer;">Delete</button>
+                        </td>
+                    </tr>
+                    """
+
+            # Add Tax as a row at the bottom of the items table if it's set
+            if last_receipt_tax > 0:
                 receipt_items_html += f"""
-                <tr>
-                    <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
-                    <td>{r.get('english_name', '')}</td>
-                    <td><span class="badge badge-{badge_class}">{r.get('category', 'Other')}</span></td>
-                    <td><strong>¥{price:,.0f}</strong></td>
+                <tr style="background-color: var(--bg); font-weight: bold; border-top: 2px solid var(--border);">
+                    <td colspan="2" style="text-align: right; color: var(--text-muted); font-size: 0.95rem;">Tax ({last_receipt_tax_type.capitalize()})</td>
+                    <td><span class="badge badge-tax">Tax</span></td>
+                    <td class="item-price-cell" data-jpy="{last_receipt_tax}"><strong>¥{last_receipt_tax:,.0f}</strong></td>
+                    <td></td>
+                    <td></td>
                 </tr>
                 """
+
+        # JSON format list of all records for dynamic filtering on the client side
+        json_records = json.dumps(records)
 
         # 3. Clean Responsive Component Embedded Core HTML Blueprint
         html_template = f"""<!DOCTYPE html>
@@ -534,11 +605,19 @@ def generate_html_dashboard() -> bool:
                 .badge-souvenirs {{ background-color: #ef6c00; }}
                 .badge-tax {{ background-color: #37474f; }}
                 .badge-other {{ background-color: #616161; }}
+                .badge-change {{ background-color: #7f8c8d; }}
+                
                 .recap-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }}
                 .stat-card {{ background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 20px; border-radius: 12px; }}
                 .stat-card.accent-card {{ background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); }}
                 .stat-label {{ font-size: 0.9rem; opacity: 0.8; }}
                 .stat-value {{ font-size: 1.8rem; font-weight: 700; margin-top: 5px; }}
+                
+                .recap-breakdown-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 25px; align-items: start; }}
+                @media (max-width: 800px) {{
+                    .recap-breakdown-grid {{ grid-template-columns: 1fr; }}
+                }}
+                
                 .category-progress {{ margin-bottom: 20px; }}
                 .progress-header {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
                 .progress-bar-container {{ background-color: var(--border); height: 10px; border-radius: 5px; overflow: hidden; }}
@@ -548,16 +627,25 @@ def generate_html_dashboard() -> bool:
         <body>
             <div class="container">
                 <header>
-                    <div class="logo">Kanji-Kakei <span>. Dashboard</span></div>
-                    <div class="nav-tabs">
-                        <button class="tab-btn active" onclick="switchTab('analysis')">Receipt Analysis</button>
-                        <button class="tab-btn" onclick="switchTab('recap')">Monthly Summary Breakdown</button>
+                    <div class="logo">Kanji-Kakei</div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <select id="currency-select" style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.95rem; color: var(--text); background: white; cursor: pointer; outline: none; transition: border-color 0.2s; font-weight: 600;">
+                            <option value="JPY">¥ (JPY - Japanese Yen)</option>
+                            <option value="USD">$ (USD - US Dollar)</option>
+                            <option value="EUR">€ (EUR - Euro)</option>
+                            <option value="GBP">£ (GBP - British Pound)</option>
+                            <option value="CNY">CN¥ (CNY - Chinese Yuan)</option>
+                            <option value="KRW">₩ (KRW - South Korean Won)</option>
+                        </select>
+                        <div class="nav-tabs">
+                            <button class="tab-btn active" onclick="switchTab('analysis')">Receipt Analysis</button>
+                            <button class="tab-btn" onclick="switchTab('recap')">Expense Summary</button>
+                        </div>
                     </div>
                 </header>
 
                 <main id="analysis" class="tab-content active">
                     <div class="dashboard-grid">
-                        <!-- Left Column: Upload and Preview -->
                         <div class="grid-col-left">
                             <div class="card">
                                 <div class="card-title">Upload & Process Receipt</div>
@@ -592,18 +680,14 @@ def generate_html_dashboard() -> bool:
                             </div>
                         </div>
                         
-                        <!-- Right Column: Results -->
                         <div class="grid-col-right">
                             <div class="card">
                                 <div class="card-title">Latest Receipt Metadata</div>
                                 <div class="receipt-summary">
                                     <div class="meta-item"><span class="label">Store Location</span><span class="value">{last_receipt_store}</span></div>
                                     <div class="meta-item"><span class="label">Transaction Date</span><span class="value">{last_receipt_date}</span></div>
-                                    <div class="total-amount">Invoice Total: ¥{last_receipt_total:,.0f}</div>
-                                </div>
-                                <div class="savings-advice-box">
-                                    <div class="advice-title">Financial Advice</div>
-                                    <p class="advice-text">"{last_savings_advice}"</p>
+                                    <div class="meta-item"><span class="label">Tax ({last_receipt_tax_type.capitalize()})</span><span id="latest-tax-amount" class="value" data-jpy="{last_receipt_tax}">¥{last_receipt_tax:,.0f}</span></div>
+                                    <div id="latest-total-amount" class="total-amount" data-jpy="{last_receipt_total}">Invoice Total: ¥{last_receipt_total:,.0f}</div>
                                 </div>
                             </div>
                             <div class="card">
@@ -611,7 +695,7 @@ def generate_html_dashboard() -> bool:
                                 <div style="overflow-x: auto;">
                                     <table>
                                         <thead>
-                                            <tr><th>Japanese Raw OCR</th><th>Translation / Context</th><th>Category</th><th>Price</th></tr>
+                                            <tr><th>Japanese Raw OCR</th><th>Translation / Context</th><th>Category</th><th>Price</th><th style="text-align: center;">Quantity</th><th>Action</th></tr>
                                         </thead>
                                         <tbody>
                                             {receipt_items_html}
@@ -621,22 +705,106 @@ def generate_html_dashboard() -> bool:
                             </div>
                         </div>
                     </div>
+
+                    <button onclick="deleteTransaction('{last_receipt_date}', '{last_receipt_store}')" class="btn" style="background-color: #e74c3c; color: white; width: 100%; margin-top: 25px; font-weight: bold; padding: 12px; font-size: 0.95rem; border-radius: 8px; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.2);">Delete This Receipt</button>
                 </main>
 
                 <main id="recap" class="tab-content">
-                    <div class="recap-grid">
-                        <div class="stat-card"><div class="stat-label">Total Cumulative Expenses</div><div class="stat-value">¥{total_global:,.0f}</div></div>
-                        <div class="stat-card accent-card"><div class="stat-label">Processed Receipts Count</div><div class="stat-value">{unique_receipts}</div></div>
-                        <div class="stat-card" style="background: #27ae60;"><div class="stat-label">Top Budget Allocation</div><div class="stat-value" style="font-size: 1.3rem;">{top_category} (¥{top_category_amount:,.0f})</div></div>
+                    <div class="card" style="margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding: 15px 25px;">
+                        <div style="font-weight: 700; color: var(--primary); font-size: 1.05rem;">Expense Summary</div>
+                        <select id="month-select" style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.95rem; color: var(--text); background: white; cursor: pointer; outline: none; transition: border-color 0.2s; font-weight: 600; min-width: 180px;"></select>
                     </div>
-                    <div class="card">
-                        <div class="card-title">Budget Weight Distribution by Category</div>
-                        {categories_html}
+
+                    <div class="recap-grid">
+                        <div class="stat-card"><div class="stat-label">Cumulative Expenses</div><div id="stat-total" class="stat-value">¥0</div></div>
+                        <div class="stat-card" style="background: #e67e22;"><div class="stat-label">Total Tax Paid</div><div id="stat-tax" class="stat-value">¥0</div></div>
+                        <div class="stat-card accent-card"><div class="stat-label">Processed Receipts Count</div><div id="stat-count" class="stat-value">0</div></div>
+                        <div class="stat-card" style="background: #27ae60;"><div class="stat-label">Top Budget Allocation</div><div id="stat-top-cat" class="stat-value" style="font-size: 1.2rem; font-weight: 700;">None</div></div>
+                    </div>
+                    
+                    <div class="recap-breakdown-grid">
+                        <div class="card">
+                            <div class="card-title">Budget Weight Distribution by Category</div>
+                            <div id="categories-progress-container"></div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-title">Top 5 Most Expensive Items</div>
+                            <div style="overflow-x: auto;">
+                                <table>
+                                    <thead>
+                                        <tr><th>Item Name</th><th>Category</th><th>Price</th></tr>
+                                    </thead>
+                                    <tbody id="top-items-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 25px; border-left: 5px solid var(--accent); background: #f0f7ff;">
+                        <div class="card-title" style="border-bottom: 2px solid #e0eefc;">Smart Advisor Insight</div>
+                        <p id="dynamic-advice" style="font-size: 1.05rem; line-height: 1.6; color: var(--primary); font-style: italic;"></p>
+                    </div>
+
+                    <div class="card" style="margin-top: 25px;">
+                        <div class="card-title">Transaction History</div>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Store</th>
+                                        <th>Total Price</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transaction-history-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </main>
             </div>
 
             <script>
+                const currencies = {{
+                    JPY: {{ symbol: '¥', rate: 1.0, precision: 0 }},
+                    EUR: {{ symbol: '€', rate: 0.0062, precision: 2 }},
+                    USD: {{ symbol: '$', rate: 0.0067, precision: 2 }},
+                    GBP: {{ symbol: '£', rate: 0.0053, precision: 2 }},
+                    CNY: {{ symbol: 'CN¥ ', rate: 0.049, precision: 2 }},
+                    KRW: {{ symbol: '₩', rate: 9.3, precision: 0 }}
+                }};
+
+                function formatPrice(amount) {{
+                    const currencyKey = document.getElementById('currency-select').value;
+                    const cur = currencies[currencyKey] || currencies.JPY;
+                    const converted = amount * cur.rate;
+                    return cur.symbol + converted.toLocaleString(undefined, {{ 
+                        minimumFractionDigits: cur.precision, 
+                        maximumFractionDigits: cur.precision 
+                    }});
+                }}
+
+                document.getElementById('currency-select').addEventListener('change', () => {{
+                    updateRecap();
+                    const latestTotalEl = document.getElementById('latest-total-amount');
+                    if (latestTotalEl) {{
+                        const jpyVal = parseFloat(latestTotalEl.getAttribute('data-jpy')) || 0;
+                        latestTotalEl.textContent = 'Invoice Total: ' + formatPrice(jpyVal);
+                    }}
+                    const latestTaxEl = document.getElementById('latest-tax-amount');
+                    if (latestTaxEl) {{
+                        const jpyVal = parseFloat(latestTaxEl.getAttribute('data-jpy')) || 0;
+                        latestTaxEl.textContent = formatPrice(jpyVal);
+                    }}
+                    document.querySelectorAll('.item-price-cell').forEach(cell => {{
+                        const jpyVal = parseFloat(cell.getAttribute('data-jpy')) || 0;
+                        cell.innerHTML = '<strong>' + formatPrice(jpyVal) + '</strong>';
+                    }});
+                }});
+
                 function switchTab(tabId) {{
                     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -739,6 +907,311 @@ def generate_html_dashboard() -> bool:
                     }};
                     reader.readAsDataURL(selectedFile);
                 }});
+
+                // Dynamic client-side filtering and metrics
+                const allRecords = {json_records};
+
+                function formatMonthYear(ym) {{
+                    if (!ym || ym.length < 7) return ym;
+                    const parts = ym.split('-');
+                    const year = parts[0];
+                    const month = parts[1];
+                    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                    return months[parseInt(month, 10) - 1] + " " + year;
+                }}
+
+                const monthSelect = document.getElementById('month-select');
+                const monthsSet = new Set();
+                allRecords.forEach(r => {{
+                    if (r.date && r.date.length >= 7) {{
+                        monthsSet.add(r.date.substring(0, 7));
+                    }}
+                }});
+
+                const sortedMonths = Array.from(monthsSet).sort().reverse();
+
+                // Populate selector options
+                const optAll = document.createElement('option');
+                optAll.value = 'all';
+                optAll.textContent = 'All Time';
+                monthSelect.appendChild(optAll);
+
+                sortedMonths.forEach(ym => {{
+                    const opt = document.createElement('option');
+                    opt.value = ym;
+                    opt.textContent = formatMonthYear(ym);
+                    monthSelect.appendChild(opt);
+                }});
+
+                monthSelect.addEventListener('change', updateRecap);
+
+                function updateRecap() {{
+                    const selectedMonth = monthSelect.value;
+                    const filteredRecords = allRecords.filter(r => {{
+                        if (selectedMonth === 'all') return true;
+                        return r.date && r.date.startsWith(selectedMonth);
+                    }});
+
+                    const uniqueReceiptsSet = new Set();
+                    const uniqueReceiptsData = {{}};
+                    const categoryTotals = {{}};
+
+                    filteredRecords.forEach(r => {{
+                        const price = parseFloat(r.price) || 0;
+                        const qty = parseFloat(r.quantity) || 1;
+                        const totalItemPrice = price * qty;
+                        const recKey = (r.date || '') + ' - ' + (r.store_name || '');
+                        uniqueReceiptSet = uniqueReceiptsSet.add(recKey);
+
+                        if (!uniqueReceiptsData[recKey]) {{
+                            uniqueReceiptsData[recKey] = {{
+                                tax_amount: parseFloat(r.tax_amount) || 0,
+                                tax_type: r.tax_type || 'included'
+                            }};
+                        }}
+
+                        const cat = (r.category || 'Other').trim();
+                        categoryTotals[cat] = (categoryTotals[cat] || 0) + totalItemPrice;
+                    }});
+
+                    const uniqueReceipts = uniqueReceiptsSet.size;
+
+                    // Calculate items sum
+                    let totalGlobal = 0;
+                    Object.keys(categoryTotals).forEach(cat => {{
+                        totalGlobal += categoryTotals[cat];
+                    }});
+
+                    // Compute tax categories and adjustments
+                    let totalTax = 0;
+                    Object.keys(uniqueReceiptsData).forEach(key => {{
+                        const rec = uniqueReceiptsData[key];
+                        totalTax += rec.tax_amount;
+                        if (rec.tax_type === 'excluded') {{
+                            categoryTotals['Tax'] = (categoryTotals['Tax'] || 0) + rec.tax_amount;
+                            totalGlobal += rec.tax_amount;
+                        }}
+                    }});
+
+                    let topCategory = 'None';
+                    let topCategoryAmount = 0;
+                    Object.keys(categoryTotals).forEach(cat => {{
+                        if (categoryTotals[cat] > topCategoryAmount) {{
+                            topCategoryAmount = categoryTotals[cat];
+                            topCategory = cat;
+                        }}
+                    }});
+
+                    document.getElementById('stat-total').textContent = formatPrice(totalGlobal);
+                    document.getElementById('stat-tax').textContent = formatPrice(totalTax);
+                    document.getElementById('stat-count').textContent = uniqueReceipts.toString();
+                    document.getElementById('stat-top-cat').textContent = topCategory === 'None' ? 'None' : `${{topCategory}} (${{formatPrice(topCategoryAmount)}})`;
+
+                    const categoryColors = {{
+                        "Groceries": "#0d47a1",
+                        "Drink": "#1565c0",
+                        "Snack": "#ff8f00",
+                        "Dining Out": "#e64a19",
+                        "Daily Essentials": "#2e7d32",
+                        "Clothes": "#00838f",
+                        "Personal Care": "#c2185b",
+                        "Stationery": "#6a1b9a",
+                        "Leisure": "#ad1457",
+                        "Souvenirs": "#ef6c00",
+                        "Tax": "#37474f",
+                        "Other": "#616161",
+                    }};
+
+                    const sortedCategories = Object.keys(categoryTotals).map(cat => ({{
+                        name: cat,
+                        amount: categoryTotals[cat]
+                    }})).sort((a, b) => b.amount - a.amount);
+
+                    const progressContainer = document.getElementById('categories-progress-container');
+                    progressContainer.innerHTML = '';
+
+                    if (sortedCategories.length === 0) {{
+                        progressContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No data available for this selection.</p>';
+                    }} else {{
+                        sortedCategories.forEach(cat => {{
+                            const percentage = totalGlobal > 0 ? (cat.amount / totalGlobal * 100).toFixed(1) : 0;
+                            const color = categoryColors[cat.name] || '#616161';
+                            progressContainer.innerHTML += `
+                            <div class="category-progress">
+                                <div class="progress-header">
+                                    <span>${{cat.name}}</span>
+                                    <strong>${{formatPrice(cat.amount)}} (${{percentage}}%)</strong>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" style="width: ${{percentage}}%; background-color: ${{color}};"></div>
+                                </div>
+                            </div>
+                            `;
+                        }});
+                    }}
+
+                    // Populate Top 5 Purchases
+                    const sortedItems = [...filteredRecords].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+                    const top5Items = sortedItems.slice(0, 5);
+                    const topItemsBody = document.getElementById('top-items-body');
+                    topItemsBody.innerHTML = '';
+
+                    if (top5Items.length === 0) {{
+                        topItemsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No items recorded for this period.</td></tr>';
+                    }} else {{
+                        top5Items.forEach(item => {{
+                            const price = parseFloat(item.price) || 0;
+                            const badgeClass = (item.category || 'Other').toLowerCase().replace(' & ', '-').replace(' ', '-');
+                            const itemName = item.english_name || item.japanese_name || 'Unnamed Item';
+                            const jpText = item.english_name && item.japanese_name ? `<br><small style="color: var(--text-muted);">${{item.japanese_name}}</small>` : '';
+                            const noteText = item.note ? `<br><small style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">${{item.note}}</small>` : '';
+
+                            topItemsBody.innerHTML += `
+                            <tr>
+                                <td><strong>${{itemName}}</strong>${{jpText}}${{noteText}}</td>
+                                <td><span class="badge badge-${{badgeClass}}">${{item.category || 'Other'}}</span></td>
+                                <td><strong>${{formatPrice(price)}}</strong></td>
+                            </tr>
+                            `;
+                        }});
+                    }}
+
+                    // Dynamic Advisor Insight
+                    const adviceText = document.getElementById('dynamic-advice');
+                    if (totalGlobal === 0) {{
+                        adviceText.innerHTML = "No spending recorded for this period.";
+                    }} else {{
+                        let adviceMsg = "";
+                        if (topCategory === "Dining Out") {{
+                            adviceMsg = `You spent a significant amount on <strong>Dining Out</strong> this period (<strong>${{formatPrice(topCategoryAmount)}}</strong>). To save money, consider cooking at home more often or buying discounted bento boxes at Japanese supermarkets near closing time!`;
+                        }} else if (topCategory === "Drink" || topCategory === "Snack") {{
+                            adviceMsg = `Your spending on <strong>${{topCategory}}</strong> is at <strong>${{formatPrice(topCategoryAmount)}}</strong>. Buying drinks and snacks at convenience stores (Konbini) or vending machines adds up quickly. Try stocking up at supermarkets (like Gyomu Super) for much lower unit prices!`;
+                        }} else if (topCategory === "Groceries") {{
+                            adviceMsg = `Your largest expense category this period is <strong>Groceries</strong> (<strong>${{formatPrice(topCategoryAmount)}}</strong>). This is a healthy spending category! To optimize your grocery budget even further, shop at discount supermarkets like Gyomu Super, OK Store, or Hanamasa.`;
+                        }} else if (topCategory === "Leisure") {{
+                            adviceMsg = `You allocated <strong>${{formatPrice(topCategoryAmount)}}</strong> to your hobbies (<strong>Leisure</strong>) this period. Look out for student discounts at museums, parks, and attractions in Japan, or research free cultural events to balance your budget!`;
+                        }} else {{
+                            adviceMsg = `Your top spending category this period is <strong>${{topCategory}}</strong> (<strong>${{formatPrice(topCategoryAmount)}}</strong>). Try tracking these purchases closely next month to keep your budget balanced!`;
+                        }}
+                        adviceText.innerHTML = adviceMsg;
+                    }}
+
+                    // Populate Transaction History table
+                    const transactionHistoryBody = document.getElementById('transaction-history-body');
+                    transactionHistoryBody.innerHTML = '';
+
+                    if (uniqueReceiptsSet.size === 0) {{
+                        transactionHistoryBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No transactions recorded for this period.</td></tr>';
+                    }} else {{
+                        const receiptTotalsMap = {{}};
+                        filteredRecords.forEach(r => {{
+                            const recKey = (r.date || '') + ' ||| ' + (r.store_name || '');
+                            const price = parseFloat(r.price) || 0;
+                            const qty = parseFloat(r.quantity) || 1;
+                            receiptTotalsMap[recKey] = (receiptTotalsMap[recKey] || 0) + (price * qty);
+                        }});
+
+                        const sortedReceiptKeys = Object.keys(receiptTotalsMap).sort((a, b) => {{
+                            const dateA = a.split(' ||| ')[0];
+                            const dateB = b.split(' ||| ')[0];
+                            return dateB.localeCompare(dateA);
+                        }});
+
+                        sortedReceiptKeys.forEach(key => {{
+                            const parts = key.split(' ||| ');
+                            const date = parts[0];
+                            const store = parts[1];
+                            const totalVal = receiptTotalsMap[key];
+
+                            transactionHistoryBody.innerHTML += `
+                            <tr>
+                                <td><strong>${{date}}</strong></td>
+                                <td>${{store}}</td>
+                                <td><strong>${{formatPrice(totalVal)}}</strong></td>
+                                <td>
+                                    <button onclick="deleteTransaction('${{date}}', '${{store}}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s;">Delete</button>
+                                </td>
+                            </tr>
+                            `;
+                        }});
+                    }}
+                }}
+
+                function deleteTransaction(date, storeName) {{
+                    if (!confirm(`Are you sure you want to delete the transaction from "${{storeName}}" on ${{date}}?`)) {{
+                        return;
+                    }}
+                    
+                    fetch('/api/delete', {{
+                        method: 'POST',
+                        headers: {{
+                            'Content-Type': 'application/json'
+                        }},
+                        body: JSON.stringify({{
+                            date: date,
+                            store_name: storeName
+                        }})
+                    }})
+                    .then(res => res.json())
+                    .then(data => {{
+                        if (data.success) {{
+                            window.location.reload();
+                        }} else {{
+                            alert('Failed to delete transaction: ' + (data.error || 'Unknown error'));
+                        }}
+                    }})
+                    .catch(err => {{
+                        alert('Error communicating with server: ' + err.message);
+                    }});
+                }}
+
+                function deleteSingleItem(date, storeName, jpName, engName) {{
+                    if (!confirm(`Remove item "${{engName || jpName}}"?`)) {{
+                        return;
+                    }}
+                    
+                    fetch('/api/delete_item', {{
+                        method: 'POST',
+                        headers: {{
+                            'Content-Type': 'application/json'
+                        }},
+                        body: JSON.stringify({{
+                            date: date,
+                            store_name: storeName,
+                            japanese_name: jpName,
+                            english_name: engName
+                        }})
+                    }})
+                    .then(res => res.json())
+                    .then(data => {{
+                        if (data.success) {{
+                            window.location.reload();
+                        }} else {{
+                            alert('Failed to delete item: ' + (data.error || 'Unknown error'));
+                        }}
+                    }})
+                    .catch(err => {{
+                        alert('Error communicating with server: ' + err.message);
+                    }});
+                }}
+
+                // Init load
+                updateRecap();
+
+                const latestTotalEl = document.getElementById('latest-total-amount');
+                if (latestTotalEl) {{
+                    const jpyVal = parseFloat(latestTotalEl.getAttribute('data-jpy')) || 0;
+                    latestTotalEl.textContent = 'Invoice Total: ' + formatPrice(jpyVal);
+                }}
+                const latestTaxEl = document.getElementById('latest-tax-amount');
+                if (latestTaxEl) {{
+                    const jpyVal = parseFloat(latestTaxEl.getAttribute('data-jpy')) || 0;
+                    latestTaxEl.textContent = formatPrice(jpyVal);
+                }}
+                document.querySelectorAll('.item-price-cell').forEach(cell => {{
+                    const jpyVal = parseFloat(cell.getAttribute('data-jpy')) || 0;
+                    cell.innerHTML = '<strong>' + formatPrice(jpyVal) + '</strong>';
+                }});
             </script>
         </body>
         </html>
@@ -754,10 +1227,6 @@ def generate_html_dashboard() -> bool:
     except Exception as err:
         logger.error(f"Dashboard assembly module encountered a runtime error: {err}", exc_info=True)
         return False
-
-
-# =========================================================================
-# INNER MODAL SUB-MENU DIALOG CLASS IMPLEMENTATION
 # =========================================================================
 class ReceiptReviewWindow(ctk.CTkToplevel):
     def __init__(self, parent_window, raw_receipt_data, on_save_callback):
@@ -765,6 +1234,7 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
 
         self.parent_window = parent_window
         self.on_save_callback = on_save_callback
+        self.savings_advice = raw_receipt_data.get("savings_advice", "")
 
         # De-serialize a working data copy to avoid editing the payload directly.
         # NOTE: keys here match the pipeline's schema (store_name / total_amount /
@@ -774,6 +1244,7 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
             "date": raw_receipt_data.get("date", datetime.now().strftime("%Y-%m-%d")),
             "total_amount": raw_receipt_data.get("total_amount", 0),
             "tax_amount": raw_receipt_data.get("tax_amount", 0),
+            "tax_type": raw_receipt_data.get("tax_type", "included"),
         }
         self.items_list = list(raw_receipt_data.get("items", []))
 
@@ -832,10 +1303,17 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.ent_total.insert(0, str(self.receipt_meta["total_amount"]))
 
         # Field 4: Internal consumption tax reference estimation
-        ctk.CTkLabel(self.left_panel, text="Included Duty Taxes (¥):").pack(padx=15, pady=(5, 0), anchor="w")
+        ctk.CTkLabel(self.left_panel, text="Duty Taxes (¥):").pack(padx=15, pady=(5, 0), anchor="w")
         self.ent_taxes = ctk.CTkEntry(self.left_panel)
-        self.ent_taxes.pack(padx=15, pady=(0, 15), fill="x")
+        self.ent_taxes.pack(padx=15, pady=(0, 10), fill="x")
         self.ent_taxes.insert(0, str(self.receipt_meta["tax_amount"]))
+        self.ent_taxes.bind("<KeyRelease>", self.on_tax_settings_changed)
+
+        # Field 5: Tax calculation type dropdown selection
+        ctk.CTkLabel(self.left_panel, text="Tax Type:").pack(padx=15, pady=(5, 0), anchor="w")
+        self.opt_tax_type = ctk.CTkOptionMenu(self.left_panel, values=["included", "excluded"], command=self.on_tax_settings_changed)
+        self.opt_tax_type.pack(padx=15, pady=(0, 15), fill="x")
+        self.opt_tax_type.set(self.receipt_meta.get("tax_type", "included"))
 
     def render_right_items_table(self):
         """Embed an editor panel mapping rows for each parsed product."""
@@ -843,28 +1321,34 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
         self.right_panel.grid(row=1, column=1, sticky="nsew", padx=(10, 20), pady=10)
 
         ctk.CTkLabel(self.right_panel, text="Extracted Product Line Items", font=ctk.CTkFont(size=14, weight="bold")).grid(
-            row=0, column=0, columnspan=4, padx=15, pady=(15, 10), sticky="w"
+            row=0, column=0, columnspan=5, padx=15, pady=(15, 10), sticky="w"
         )
 
         # Generate table header cell labels
-        headers = ["Original Item Text", "Translation / Meaning", "Category Choice", "Price"]
+        headers = ["Original Item Text", "Translation / Meaning", "Category Choice", "Price", "Quantity", ""]
         for idx, col_title in enumerate(headers):
+            sticky_val = "" if col_title == "Quantity" else "w"
             lbl = ctk.CTkLabel(self.right_panel, text=col_title, font=ctk.CTkFont(size=11, weight="bold"), text_color="#888888")
-            lbl.grid(row=1, column=idx, padx=8, pady=2, sticky="w")
+            lbl.grid(row=1, column=idx, padx=8, pady=2, sticky=sticky_val)
 
         # Scrollable inner row content panel container
         self.scroll_table = ctk.CTkScrollableFrame(self.right_panel, fg_color="transparent")
-        self.scroll_table.grid(row=2, column=0, columnspan=4, sticky="nsew", padx=5, pady=5)
+        self.scroll_table.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=5, pady=5)
         self.right_panel.grid_rowconfigure(2, weight=1)
         self.right_panel.grid_columnconfigure(0, weight=2)
         self.right_panel.grid_columnconfigure(1, weight=2)
         self.right_panel.grid_columnconfigure(2, weight=1)
         self.right_panel.grid_columnconfigure(3, weight=1)
+        self.right_panel.grid_columnconfigure(4, weight=1)
+        self.right_panel.grid_columnconfigure(5, weight=1)
 
-        # Allocate and fill dynamic cell rows matching the input structure.
-        # NOTE: item fields here match the pipeline's schema (japanese_name /
-        # english_name), which is what was previously read with the wrong keys
-        # and caused the sub-window text to be blank.
+        self.populate_scroll_table()
+
+    def populate_scroll_table(self):
+        # Clear existing row widgets
+        for child in self.scroll_table.winfo_children():
+            child.destroy()
+
         self.row_widget_bindings = []
         for index, item in enumerate(self.items_list):
             # Column 0: Original OCR (Japanese) text
@@ -890,15 +1374,93 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
             entry_price.grid(row=index, column=3, padx=4, pady=4, sticky="ew")
             entry_price.insert(0, str(item.get("price", 0)))
 
+            # Column 4: Quantity
+            entry_qty = ctk.CTkEntry(self.scroll_table, width=35, justify="center", font=ctk.CTkFont(size=12))
+            entry_qty.grid(row=index, column=4, padx=4, pady=4, sticky="ew")
+            entry_qty.insert(0, str(item.get("quantity", 1)))
+
+            # Column 5: Delete button
+            btn_del = ctk.CTkButton(
+                self.scroll_table,
+                text="🗑️",
+                width=30,
+                fg_color="#e74c3c",
+                hover_color="#c0392b",
+                command=lambda r_idx=index: self.delete_row(r_idx)
+            )
+            btn_del.grid(row=index, column=5, padx=4, pady=4, sticky="ew")
+
             self.scroll_table.grid_columnconfigure(0, weight=2)
             self.scroll_table.grid_columnconfigure(1, weight=2)
             self.scroll_table.grid_columnconfigure(2, weight=1)
             self.scroll_table.grid_columnconfigure(3, weight=1)
+            self.scroll_table.grid_columnconfigure(4, weight=1)
+            self.scroll_table.grid_columnconfigure(5, weight=1)
 
             # Keep widget handle references in an active memory list
             self.row_widget_bindings.append(
-                {"ocr": entry_ocr, "translation": entry_trans, "category": opt_cat, "price": entry_price}
+                {
+                    "ocr": entry_ocr,
+                    "translation": entry_trans,
+                    "category": opt_cat,
+                    "price": entry_price,
+                    "quantity": entry_qty,
+                    "note": item.get("note", "")
+                }
             )
+
+    def update_items_list_from_widgets(self):
+        updated_list = []
+        for binding in self.row_widget_bindings:
+            try:
+                price_val = int(binding["price"].get().strip() or 0)
+            except ValueError:
+                price_val = 0
+            try:
+                qty_val = int(binding["quantity"].get().strip() or 1)
+            except ValueError:
+                qty_val = 1
+
+            updated_list.append({
+                "japanese_name": binding["ocr"].get().strip(),
+                "english_name": binding["translation"].get().strip(),
+                "category": binding["category"].get(),
+                "price": price_val,
+                "quantity": qty_val,
+                "note": binding["note"]
+            })
+        self.items_list = updated_list
+
+    def delete_row(self, r_idx):
+        self.update_items_list_from_widgets()
+        if 0 <= r_idx < len(self.items_list):
+            self.items_list.pop(r_idx)
+        self.populate_scroll_table()
+        try:
+            tax_val = int(self.ent_taxes.get().strip() or 0)
+        except ValueError:
+            tax_val = 0
+        tax_type = self.opt_tax_type.get()
+        items_sum = sum(item.get("price", 0) * item.get("quantity", 1) for item in self.items_list)
+        new_total = items_sum
+        if tax_type == "excluded":
+            new_total += tax_val
+        self.ent_total.delete(0, "end")
+        self.ent_total.insert(0, str(new_total))
+
+    def on_tax_settings_changed(self, *args):
+        try:
+            tax_val = int(self.ent_taxes.get().strip() or 0)
+        except ValueError:
+            tax_val = 0
+        tax_type = self.opt_tax_type.get()
+        self.update_items_list_from_widgets()
+        items_sum = sum(item.get("price", 0) * item.get("quantity", 1) for item in self.items_list)
+        new_total = items_sum
+        if tax_type == "excluded":
+            new_total += tax_val
+        self.ent_total.delete(0, "end")
+        self.ent_total.insert(0, str(new_total))
 
     def render_bottom_action_bar(self):
         """Construct lower button controls grid row wrapper panel."""
@@ -931,7 +1493,9 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
                 "date": self.ent_date.get().strip() or datetime.now().strftime("%Y-%m-%d"),
                 "total_amount": int(self.ent_total.get().strip() or 0),
                 "tax_amount": int(self.ent_taxes.get().strip() or 0),
+                "tax_type": self.opt_tax_type.get(),
                 "items": [],
+                "savings_advice": self.savings_advice,
             }
 
             # 2. Pull each item row's values
@@ -940,12 +1504,18 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
                     price_val = int(binding["price"].get().strip() or 0)
                 except ValueError:
                     price_val = 0
+                try:
+                    qty_val = int(binding["quantity"].get().strip() or 1)
+                except ValueError:
+                    qty_val = 1
 
                 item_row = {
                     "japanese_name": binding["ocr"].get().strip(),
                     "english_name": binding["translation"].get().strip(),
                     "category": binding["category"].get(),
                     "price": price_val,
+                    "quantity": qty_val,
+                    "note": binding["note"],
                 }
                 validated_receipt["items"].append(item_row)
 
@@ -1028,6 +1598,12 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 parser = ReceiptParser()
                 response = parser.parse_receipt_image(pil_img)
                 
+                # Overwrite if duplicate to allow viewing without double counting
+                if is_duplicate_receipt(response):
+                    logger.info(f"[Server] Overwriting duplicate receipt for store '{response.get('store_name')}' on '{response.get('date')}'")
+                    delete_receipt_records(response.get("date"), response.get("store_name"))
+                    delete_items_from_csv(response.get("date"), response.get("store_name"))
+                
                 # Insert into DB and CSV
                 insert_receipt(response, save_path)
                 append_items_to_csv(response, save_path)
@@ -1063,6 +1639,102 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "error": str(e)
                 }
                 self.wfile.write(json.dumps(error_response).encode('utf-8'))
+        elif self.path == '/api/delete':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                # Parse JSON
+                data = json.loads(post_data.decode('utf-8'))
+                date_str = data.get("date")
+                store_name = data.get("store_name")
+                
+                if not date_str or not store_name:
+                    raise ValueError("Date and store name are required to delete a receipt")
+                
+                # Delete from SQLite and CSV
+                delete_receipt_records(date_str, store_name)
+                delete_items_from_csv(date_str, store_name)
+                
+                # Re-generate the dashboard HTML
+                generate_html_dashboard()
+                
+                # Trigger GUI refresh if active
+                try:
+                    if 'app' in globals() and app:
+                        app.after(0, app.refresh_history_table)
+                except Exception as gui_err:
+                    logger.debug(f"Could not refresh GUI: {gui_err}")
+                
+                # Send success response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                
+                success_response = {
+                    "success": True
+                }
+                self.wfile.write(json.dumps(success_response).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"[Server] API delete error: {e}", exc_info=True)
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                error_response = {
+                    "success": False,
+                    "error": str(e)
+                }
+                self.wfile.write(json.dumps(error_response).encode('utf-8'))
+        elif self.path == '/api/delete_item':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                # Parse JSON
+                data = json.loads(post_data.decode('utf-8'))
+                date_str = data.get("date")
+                store_name = data.get("store_name")
+                jp_name = data.get("japanese_name")
+                eng_name = data.get("english_name")
+                
+                if not date_str or not store_name:
+                    raise ValueError("Date and store name are required to identify the transaction")
+                
+                # Delete from SQLite and CSV
+                delete_single_item_records(date_str, store_name, jp_name, eng_name)
+                delete_single_item_from_csv(date_str, store_name, jp_name, eng_name)
+                
+                # Re-generate the dashboard HTML
+                generate_html_dashboard()
+                
+                # Trigger GUI refresh if active
+                try:
+                    if 'app' in globals() and app:
+                        app.after(0, app.refresh_history_table)
+                except Exception as gui_err:
+                    logger.debug(f"Could not refresh GUI: {gui_err}")
+                
+                # Send success response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                
+                success_response = {
+                    "success": True
+                }
+                self.wfile.write(json.dumps(success_response).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"[Server] API delete item error: {e}", exc_info=True)
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                error_response = {
+                    "success": False,
+                    "error": str(e)
+                }
+                self.wfile.write(json.dumps(error_response).encode('utf-8'))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1088,6 +1760,10 @@ def start_web_server():
 # Main execution gateway
 if __name__ == "__main__":
     logger.info("Starting Kanji-Kakei main graphical window lifecycle...")
+    # Pre-initialize and generate empty dashboard so web server never 404s
+    init_db()
+    init_csv()
+    generate_html_dashboard()
     start_web_server()
     app = ReceiptApp()
     app.mainloop()

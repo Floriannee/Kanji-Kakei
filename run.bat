@@ -2,14 +2,14 @@
 cd /d "%~dp0"
 title Kanji-Kakei Startup Launcher
 echo =========================================================
-echo  Kanji-Kakei: Japanese Receipt Reader & AI Advisor
+echo  Kanji-Kakei: Japanese Receipt Reader ^& AI Advisor
 echo  Starting Windows 11 Desktop Application...
 echo =========================================================
 echo.
 
 :: Check virtual environment
 if not exist ".venv" (
-    echo [ERROR] Virtual environment (.venv) was not found in this folder.
+    echo [ERROR] Virtual environment .venv was not found in this folder.
     echo Please run setup first.
     pause
     exit /b
