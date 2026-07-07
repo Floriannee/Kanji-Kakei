@@ -12,7 +12,8 @@ import base64
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-from PIL import Image
+from PIL import Image, ImageTk
+import cv2
 
 # Config and Modules import
 from config.settings import OUTPUT_DIR
@@ -95,7 +96,17 @@ class ReceiptApp(ctk.CTk):
         self.btn_browse = ctk.CTkButton(
             self.sidebar, text="📁 Select Receipt Image", height=40, command=self.browse_image
         )
-        self.btn_browse.pack(padx=20, pady=10, fill="x")
+        self.btn_browse.pack(padx=20, pady=(10, 5), fill="x")
+
+        self.btn_camera = ctk.CTkButton(
+            self.sidebar,
+            text="📸 Capture from Camera",
+            height=40,
+            fg_color="#d35400",
+            hover_color="#ba4a00",
+            command=self.capture_from_camera,
+        )
+        self.btn_camera.pack(padx=20, pady=(5, 10), fill="x")
 
         self.btn_scan = ctk.CTkButton(
             self.sidebar,
@@ -180,6 +191,19 @@ class ReceiptApp(ctk.CTk):
         self.btn_scan.configure(state="normal")
         self.render_image_preview()
 
+    def capture_from_camera(self):
+        """Open the camera capture window."""
+        self.status_label.configure(text="Opening camera...", text_color="#3498db")
+        camera_window = CameraCaptureWindow(self, self.on_camera_captured)
+        camera_window.grab_set()
+
+    def on_camera_captured(self, capture_path):
+        """Invoked when camera window successfully captures a picture."""
+        self.current_image_path = capture_path
+        self.status_label.configure(text=f"Loaded: {os.path.basename(capture_path)}", text_color="#3498db")
+        self.btn_scan.configure(state="normal")
+        self.render_image_preview()
+
     def render_image_preview(self):
         """Load and adjust image to scale properly without distortions inside the widget frame."""
         for widget in self.tab_preview.winfo_children():
@@ -248,8 +272,16 @@ class ReceiptApp(ctk.CTk):
             elapsed = time.time() - start_time
             logger.info(f"Successfully processed receipt in {elapsed:.2f}s")
 
+            # Write to last_processed_time.txt
+            try:
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+                with open(os.path.join(OUTPUT_DIR, "last_processed_time.txt"), "w") as df:
+                    df.write(f"{elapsed:.2f}")
+            except Exception as file_err:
+                logger.warning(f"Could not write elapsed time to file: {file_err}")
+
             # Queue back UI callback invocation onto the main event thread
-            self.after(0, self.handle_pipeline_success, parsed_structured_receipt)
+            self.after(0, self.handle_pipeline_success, parsed_structured_receipt, elapsed)
 
         except Exception as error_exception:
             logger.error(f"Critical execution crash during pipeline run: {error_exception}", exc_info=True)
@@ -259,11 +291,11 @@ class ReceiptApp(ctk.CTk):
         """Helper callback thread-safely updating the status label inside the window."""
         self.after(0, lambda: self.status_label.configure(text=status_msg, text_color=text_hex_color))
 
-    def handle_pipeline_success(self, structured_receipt):
+    def handle_pipeline_success(self, structured_receipt, elapsed_time):
         """Callback on pipeline success. Prompts the user validation modal popup."""
         self.btn_scan.configure(state="normal", text="✨ Run OCR & Analysis")
         self.btn_browse.configure(state="normal")
-        self.status_label.configure(text="Analysis complete!", text_color="#2ecc71")
+        self.status_label.configure(text=f"Analysis complete in {elapsed_time:.2f}s!", text_color="#2ecc71")
 
         logger.debug("Launching interactive verification review sub-menu modal...")
         review_modal = ReceiptReviewWindow(self, structured_receipt, self.on_receipt_verified)
@@ -421,6 +453,16 @@ def generate_html_dashboard() -> bool:
     try:
         records = load_all_items()
         
+        # Read last processed duration if available
+        last_processed_time = "0.00"
+        duration_file = os.path.join(OUTPUT_DIR, "last_processed_time.txt")
+        if os.path.exists(duration_file):
+            try:
+                with open(duration_file, "r") as df:
+                    last_processed_time = df.read().strip()
+            except Exception:
+                pass
+        
         if not records:
             last_receipt_date = "N/A"
             last_receipt_store = "No Scanned Receipts"
@@ -470,6 +512,8 @@ def generate_html_dashboard() -> bool:
                 if is_match:
                     price = float(safe_int(r.get("price")))
                     qty = int(safe_int(r.get("quantity") or 1))
+                    if qty < 1:
+                        qty = 1
                     last_receipt_total += price * qty
                     badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
 
@@ -488,6 +532,8 @@ def generate_html_dashboard() -> bool:
                         category_html = f'<span class="badge badge-{badge_class}">{r.get("category", "Other")}</span>'
 
                     qty = int(safe_int(r.get("quantity") or 1))
+                    if qty < 1:
+                        qty = 1
                     receipt_items_html += f"""
                     <tr>
                         <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
@@ -537,7 +583,7 @@ def generate_html_dashboard() -> bool:
                 }}
                 * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; }}
                 body {{ background-color: var(--bg); color: var(--text); padding: 20px; }}
-                .container {{ max-width: 1100px; margin: 0 auto; }}
+                .container {{ max-width: 1350px; margin: 0 auto; }}
                 header {{ background-color: var(--card-bg); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }}
                 .logo {{ font-size: 1.4rem; font-weight: 700; color: var(--primary); }}
                 .logo span {{ color: var(--accent); }}
@@ -563,6 +609,33 @@ def generate_html_dashboard() -> bool:
                 .preview-container {{ text-align: center; }}
                 .preview-container img {{ max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
                 .actions {{ display: flex; gap: 10px; justify-content: center; }}
+                
+                .camera-modal {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(5px);
+                    z-index: 3000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }}
+                .camera-popup-box {{
+                    background: var(--card-bg);
+                    border-radius: 12px;
+                    padding: 25px;
+                    width: 90%;
+                    max-width: 600px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    border: 1px solid var(--border);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }}
                 
                 .btn {{ padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }}
                 .btn-accent {{ background-color: var(--accent); color: white; }}
@@ -657,6 +730,13 @@ def generate_html_dashboard() -> bool:
                                     </div>
                                 </div>
                                 
+                                <!-- Camera modal is located outside -->
+                                
+                                <button id="btn-camera-trigger" class="btn btn-muted" style="width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                    Scan with Webcam
+                                </button>
+                                
                                 <div id="preview-container" class="preview-container" style="display: none;">
                                     <img id="image-preview" src="" alt="Receipt Preview" />
                                     <div class="actions">
@@ -676,6 +756,9 @@ def generate_html_dashboard() -> bool:
                                 <div class="card-title">Processed Image Viewport</div>
                                 <div class="receipt-image-wrapper">
                                     <img src="{last_receipt_image_url}" alt="Last Processed Receipt" class="receipt-img" />
+                                </div>
+                                <div id="processed-time-caption" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; font-weight: 500; font-style: italic;">
+                                    analysis complete in {last_processed_time} s
                                 </div>
                             </div>
                         </div>
@@ -767,14 +850,26 @@ def generate_html_dashboard() -> bool:
                 </main>
             </div>
 
+            <!-- Floating Camera Popup Window -->
+            <div id="camera-modal" class="camera-modal" style="display: none;">
+                <div class="camera-popup-box">
+                    <div class="card-title" style="margin-bottom: 10px; border: none; padding-bottom: 0;">Webcam Scanner</div>
+                    <video id="webcam" autoplay playsinline style="width: 100%; border-radius: 8px; background: #000; max-height: 400px;"></video>
+                    <div class="actions" style="margin-top: 10px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="btn-capture" class="btn btn-accent">Take Snapshot</button>
+                        <button id="btn-close-camera" class="btn btn-muted" style="background-color: #e74c3c; color: white;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
             <script>
                 const currencies = {{
                     JPY: {{ symbol: '¥', rate: 1.0, precision: 0 }},
-                    EUR: {{ symbol: '€', rate: 0.0062, precision: 2 }},
-                    USD: {{ symbol: '$', rate: 0.0067, precision: 2 }},
-                    GBP: {{ symbol: '£', rate: 0.0053, precision: 2 }},
-                    CNY: {{ symbol: 'CN¥ ', rate: 0.049, precision: 2 }},
-                    KRW: {{ symbol: '₩', rate: 9.3, precision: 0 }}
+                    EUR: {{ symbol: '€', rate: 1 / 183, precision: 2 }},
+                    USD: {{ symbol: '$', rate: 1 / 163, precision: 2 }},
+                    GBP: {{ symbol: '£', rate: 1 / 216, precision: 2 }},
+                    CNY: {{ symbol: 'CN¥ ', rate: 1 / 23.8, precision: 2 }},
+                    KRW: {{ symbol: '₩', rate: 100 / 10.60, precision: 0 }}
                 }};
 
                 function formatPrice(amount) {{
@@ -820,8 +915,16 @@ def generate_html_dashboard() -> bool:
                 const btnCancel = document.getElementById('btn-cancel');
                 const processingOverlay = document.getElementById('processing-overlay');
                 const timerVal = document.getElementById('timer-val');
+                const cameraContainer = document.getElementById('camera-modal');
+                const webcam = document.getElementById('webcam');
+                const btnCapture = document.getElementById('btn-capture');
+                const btnCloseCamera = document.getElementById('btn-close-camera');
+                const btnCameraTrigger = document.getElementById('btn-camera-trigger');
+
                 let selectedFile = null;
+                let cameraCapturedDataUrl = null;
                 let timerInterval = null;
+                let stream = null;
 
                 dropzone.addEventListener('click', () => fileInput.click());
                 dropzone.addEventListener('dragover', (e) => {{
@@ -849,24 +952,63 @@ def generate_html_dashboard() -> bool:
                         return;
                     }}
                     selectedFile = file;
+                    cameraCapturedDataUrl = null;
                     const reader = new FileReader();
                     reader.onload = (e) => {{
                         imagePreview.src = e.target.result;
                         dropzone.style.display = 'none';
+                        btnCameraTrigger.style.display = 'none';
                         previewContainer.style.display = 'block';
                     }};
                     reader.readAsDataURL(file);
                 }}
 
+                btnCameraTrigger.addEventListener('click', async () => {{
+                    try {{
+                        stream = await navigator.mediaDevices.getUserMedia({{ video: {{ facingMode: 'environment', width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }} }});
+                        webcam.srcObject = stream;
+                        cameraContainer.style.display = 'flex';
+                    }} catch (err) {{
+                        alert('Could not access camera: ' + err.message);
+                    }}
+                }});
+
+                btnCapture.addEventListener('click', () => {{
+                    const canvas = document.createElement('canvas');
+                    canvas.width = webcam.videoWidth || 1280;
+                    canvas.height = webcam.videoHeight || 720;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+                    cameraCapturedDataUrl = canvas.toDataURL('image/jpeg');
+
+                    if (stream) {{
+                        stream.getTracks().forEach(track => track.stop());
+                    }}
+                    cameraContainer.style.display = 'none';
+                    imagePreview.src = cameraCapturedDataUrl;
+                    dropzone.style.display = 'none';
+                    btnCameraTrigger.style.display = 'none';
+                    previewContainer.style.display = 'block';
+                }});
+
+                btnCloseCamera.addEventListener('click', () => {{
+                    if (stream) {{
+                        stream.getTracks().forEach(track => track.stop());
+                    }}
+                    cameraContainer.style.display = 'none';
+                }});
+
                 btnCancel.addEventListener('click', () => {{
                     selectedFile = null;
+                    cameraCapturedDataUrl = null;
                     dropzone.style.display = 'block';
+                    btnCameraTrigger.style.display = 'block';
                     previewContainer.style.display = 'none';
                     fileInput.value = '';
                 }});
 
                 btnProcess.addEventListener('click', () => {{
-                    if (!selectedFile) return;
+                    if (!selectedFile && !cameraCapturedDataUrl) return;
                     
                     processingOverlay.style.display = 'flex';
                     let startTime = Date.now();
@@ -875,13 +1017,7 @@ def generate_html_dashboard() -> bool:
                         timerVal.textContent = elapsed;
                     }}, 100);
                     
-                    const reader = new FileReader();
-                    reader.onload = () => {{
-                        const payload = {{
-                            filename: selectedFile.name,
-                            image: reader.result
-                        }};
-                        
+                    const uploadPayload = (payload) => {{
                         fetch('/api/upload', {{
                             method: 'POST',
                             headers: {{
@@ -905,8 +1041,25 @@ def generate_html_dashboard() -> bool:
                             alert('Server error: ' + err.message);
                         }});
                     }};
-                    reader.readAsDataURL(selectedFile);
+
+                    if (cameraCapturedDataUrl) {{
+                        uploadPayload({{
+                            filename: 'camera_capture.jpg',
+                            image: cameraCapturedDataUrl
+                        }});
+                    }} else {{
+                        const reader = new FileReader();
+                        reader.onload = () => {{
+                            uploadPayload({{
+                                filename: selectedFile.name,
+                                image: reader.result
+                            }});
+                        }};
+                        reader.readAsDataURL(selectedFile);
+                    }}
                 }});
+
+                // Analysis duration text is permanently loaded from python
 
                 // Dynamic client-side filtering and metrics
                 const allRecords = {json_records};
@@ -1227,6 +1380,81 @@ def generate_html_dashboard() -> bool:
     except Exception as err:
         logger.error(f"Dashboard assembly module encountered a runtime error: {err}", exc_info=True)
         return False
+# =========================================================================
+class CameraCaptureWindow(ctk.CTkToplevel):
+    def __init__(self, parent_window, on_capture_callback):
+        super().__init__(parent_window)
+        self.parent_window = parent_window
+        self.on_capture_callback = on_capture_callback
+        
+        self.title("Webcam Capture - Kanji-Kakei")
+        self.geometry("680x580")
+        self.resizable(False, False)
+        
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            messagebox.showerror("Camera Error", "Could not access the webcam.")
+            self.destroy()
+            return
+            
+        self.label_preview = ctk.CTkLabel(self, text="")
+        self.label_preview.pack(padx=15, pady=15, fill="both", expand=True)
+        
+        self.btn_capture = ctk.CTkButton(
+            self,
+            text="📸 Capture Photo",
+            height=40,
+            fg_color="#27ae60",
+            hover_color="#219653",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            command=self.capture_photo
+        )
+        self.btn_capture.pack(padx=15, pady=(5, 10), fill="x")
+        
+        self.btn_cancel = ctk.CTkButton(
+            self,
+            text="Cancel",
+            height=35,
+            fg_color="#e74c3c",
+            hover_color="#c0392b",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self.close_camera
+        )
+        self.btn_cancel.pack(padx=15, pady=(0, 15), fill="x")
+        
+        self.protocol("WM_DELETE_WINDOW", self.close_camera)
+        self.update_frame()
+        
+    def update_frame(self):
+        if not self.cap.isOpened():
+            return
+        ret, frame = self.cap.read()
+        if ret:
+            # OpenCV frame is BGR, convert to RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame_rgb)
+            img.thumbnail((640, 480))
+            self.img_tk = ImageTk.PhotoImage(image=img)
+            self.label_preview.configure(image=self.img_tk)
+            
+        # Update frame every 20ms
+        self.after(20, self.update_frame)
+        
+    def capture_photo(self):
+        ret, frame = self.cap.read()
+        if ret:
+            os.makedirs("receipts", exist_ok=True)
+            capture_path = os.path.join("receipts", f"camera_capture_{int(time.time())}.jpg")
+            cv2.imwrite(capture_path, frame)
+            self.cap.release()
+            self.on_capture_callback(capture_path)
+            self.destroy()
+            
+    def close_camera(self):
+        if self.cap.isOpened():
+            self.cap.release()
+        self.destroy()
+
 # =========================================================================
 class ReceiptReviewWindow(ctk.CTkToplevel):
     def __init__(self, parent_window, raw_receipt_data, on_save_callback):
@@ -1595,8 +1823,19 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     pil_img = Image.open(save_path).convert("RGB")
                 
                 # Run LLM parsing
+                start_time = time.time()
                 parser = ReceiptParser()
                 response = parser.parse_receipt_image(pil_img)
+                elapsed = time.time() - start_time
+                logger.info(f"[Server] Successfully processed uploaded receipt in {elapsed:.2f}s")
+                
+                # Write to last_processed_time.txt
+                try:
+                    os.makedirs(OUTPUT_DIR, exist_ok=True)
+                    with open(os.path.join(OUTPUT_DIR, "last_processed_time.txt"), "w") as df:
+                        df.write(f"{elapsed:.2f}")
+                except Exception as file_err:
+                    logger.warning(f"Could not write elapsed time to file: {file_err}")
                 
                 # Overwrite if duplicate to allow viewing without double counting
                 if is_duplicate_receipt(response):
@@ -1625,6 +1864,7 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 
                 success_response = {
                     "success": True,
+                    "elapsed": elapsed,
                     "data": response
                 }
                 self.wfile.write(json.dumps(success_response).encode('utf-8'))
@@ -1739,6 +1979,16 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
 def start_web_server():
     server_address = ('', 8000)
     class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
@@ -1749,7 +1999,10 @@ def start_web_server():
         try:
             httpd = ThreadingHTTPServer(server_address, DashboardHTTPRequestHandler)
             server_running = True
+            local_ip = get_local_ip()
             logger.info("[Server] Local dashboard web server running on http://localhost:8000/")
+            if local_ip != "127.0.0.1":
+                logger.info(f"[Server] Access it from your phone on the same Wi-Fi at: http://{local_ip}:8000/")
             httpd.serve_forever()
         except Exception as e:
             logger.error(f"[Server] Failed to start local web server: {e}")
@@ -1759,11 +2012,33 @@ def start_web_server():
 
 # Main execution gateway
 if __name__ == "__main__":
-    logger.info("Starting Kanji-Kakei main graphical window lifecycle...")
+    import sys
+    web_only = "--web-only" in sys.argv
+    
+    if web_only:
+        logger.info("Starting Kanji-Kakei web-only dashboard (headless mode)...")
+    else:
+        logger.info("Starting Kanji-Kakei main graphical window lifecycle...")
+        
     # Pre-initialize and generate empty dashboard so web server never 404s
     init_db()
     init_csv()
     generate_html_dashboard()
     start_web_server()
-    app = ReceiptApp()
-    app.mainloop()
+    # Automatically launch the web dashboard in the user's default browser
+    try:
+        webbrowser.open("http://localhost:8000/")
+    except Exception as launch_err:
+        logger.warning(f"Could not automatically open web browser: {launch_err}")
+        
+    if not web_only:
+        app = ReceiptApp()
+        app.mainloop()
+    else:
+        logger.info("[Server] Headless Web-only mode active. Keep this console open to process receipts.")
+        logger.info("Press Ctrl+C to stop the local web server.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Shutting down web server...")

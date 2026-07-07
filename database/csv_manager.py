@@ -102,7 +102,7 @@ def append_items_to_csv(receipt_data: dict, image_path: str = "") -> int:
                 "english_name": item.get("english_name", ""),
                 "category": item.get("category") or "Other",
                 "price": item.get("price", 0),
-                "quantity": item.get("quantity", 1),
+                "quantity": max(1, int(item.get("quantity") or 1)) if isinstance(item.get("quantity"), (int, float)) or (isinstance(item.get("quantity"), str) and item.get("quantity").isdigit()) else 1,
                 "note": item.get("note", ""),
                 "receipt_total": total_amount,
                 "tax_amount": tax_amount,

@@ -133,7 +133,12 @@ def insert_receipt(receipt_data: dict, image_path: str = "") -> int:
             price = item.get("price", 0)
             category = item.get("category", "Other")
             confidence = item.get("confidence", 1.0)
-            quantity = item.get("quantity", 1)
+            try:
+                quantity = int(item.get("quantity") or 1)
+            except Exception:
+                quantity = 1
+            if quantity < 1:
+                quantity = 1
             
             cursor.execute("""
             INSERT INTO line_items (receipt_id, item_name, english_name, price, category, confidence_score, quantity)
