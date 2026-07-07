@@ -13,6 +13,12 @@ reports accuracy across three axes:
                                 the time budget (default 3.0s), plus raw
                                 timing stats (avg/median/min/max).
 
+Timing note: the reported time is Groq's OWN server-side processing time
+(from the API response's `usage.total_time`), NOT wall-clock. This excludes
+your network round-trip and any client-side rate-limit (429) backoff waits,
+so "time when Groq is ready and working" is what's measured. If a receipt is
+served by offline Simulation Mode (no Groq call), it falls back to wall-clock.
+
 Ground truth format: see evaluation/ground_truth.json (or run
 evaluation/generate_template.py to scaffold one from your image folder).
 
@@ -38,7 +44,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.image_processing import deskew_and_crop, opencv_to_pil
 from inference.pipeline import ReceiptParser
 
-SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
+SUPPORTED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".bmp"]
+
+# HEIC/HEIF support (iPhone photos). pillow-heif is a listed requirement; if
+# it's somehow missing we degrade gracefully to the base formats.
+try:
+    import pillow_heif  # type: ignore
+
+    pillow_heif.register_heif_opener()
+    SUPPORTED_EXTENSIONS.extend([".heic", ".heif"])
+except Exception:
+    pass
+
+SUPPORTED_EXTENSIONS = tuple(SUPPORTED_EXTENSIONS)
+
 TEXT_SIMILARITY_THRESHOLD = 0.85  # how close two strings must be to count as "correct"
 ITEM_MATCH_THRESHOLD = 0.5        # minimum similarity to pair a predicted item with a GT item
 
@@ -138,7 +157,7 @@ def score_image(predicted: dict, expected: dict):
 
         # Categorization field: a judgment call, not read directly off the paper
         cat_total += 1
-        exp_cat = expected_cat = exp_item.get("category") or ""
+        exp_cat = exp_item.get("category") or ""
         pred_cat = (pred_item.get("category") if pred_item else None) or ""
         if pred_item is not None and _normalize(pred_cat) == _normalize(exp_cat):
             cat_correct += 1
@@ -196,17 +215,22 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
             cv_img = deskew_and_crop(image_path)
             pil_img = opencv_to_pil(cv_img)
 
-            # Time only the model call itself (mirrors the app's own stopwatch,
-            # which starts after deskewing, at the "Process Receipt" click).
+            # Wall-clock is only a fallback for Simulation Mode. The real number
+            # we want is Groq's own server-side processing time, which excludes
+            # our network latency and any 429 retry-backoff sleeps.
             start = time.perf_counter()
             predicted = parser.parse_receipt_image(pil_img)
-            elapsed = time.perf_counter() - start
+            wall_elapsed = time.perf_counter() - start
+
+            groq_time = getattr(parser, "last_groq_total_time", None)
+            elapsed = groq_time if groq_time is not None else wall_elapsed
             parse_times.append(elapsed)
 
             scores = score_image(predicted, expected)
             scores.update({
                 "image": filename,
                 "parse_time_sec": round(elapsed, 3),
+                "time_source": "groq" if groq_time is not None else "wall_clock",
                 "time_ok": elapsed <= time_threshold,
                 "error": "",
             })
@@ -218,7 +242,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
                 "text_correct": 0, "text_total": 0,
                 "cat_correct": 0, "cat_total": 0,
                 "extra_items": 0,
-                "parse_time_sec": None, "time_ok": False,
+                "parse_time_sec": None, "time_source": None, "time_ok": False,
                 "mismatches": [], "error": str(e),
             })
             print(f"    [ERROR] {e}")
@@ -243,6 +267,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
         "num_images_skipped_no_gt": len(skipped),
         "num_failures": num_failures,
         "time_threshold_sec": time_threshold,
+        "time_source": "groq_server_side_total_time (fallback: wall_clock for simulation)",
         "text_reading_accuracy_pct": round(text_accuracy, 2),
         "categorization_accuracy_pct": round(cat_accuracy, 2),
         "time_accuracy_pct": round(time_accuracy, 2),
@@ -269,6 +294,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
     if parse_times:
         print(f"Avg / median / min / max time: {summary['avg_time_sec']}s / "
               f"{summary['median_time_sec']}s / {summary['min_time_sec']}s / {summary['max_time_sec']}s")
+    print("  (times = Groq server-side processing, excluding network + retry waits)")
     print("=" * 60 + "\n")
 
     # ---------------- Save report files ----------------
@@ -281,7 +307,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
         writer.writerow([
             "image", "text_correct", "text_total", "text_accuracy_pct",
             "cat_correct", "cat_total", "cat_accuracy_pct",
-            "extra_items", "parse_time_sec", "time_ok", "error",
+            "extra_items", "parse_time_sec", "time_source", "time_ok", "error",
         ])
         for r in per_image_results:
             text_pct = round(r["text_correct"] / r["text_total"] * 100, 1) if r["text_total"] else ""
@@ -289,7 +315,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
             writer.writerow([
                 r["image"], r["text_correct"], r["text_total"], text_pct,
                 r["cat_correct"], r["cat_total"], cat_pct,
-                r["extra_items"], r["parse_time_sec"], r["time_ok"], r["error"],
+                r["extra_items"], r["parse_time_sec"], r.get("time_source"), r["time_ok"], r["error"],
             ])
 
     details_path = os.path.join(output_dir, f"evaluation_details_{timestamp}.json")

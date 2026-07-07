@@ -2,7 +2,7 @@
   "IMG_6673.HEIC": {
     "items": [
       {
-        "category": "Groceries",
+        "category": "Snack",
         "english_name": "Shogayaki toast or Small warehouse toast",
         "japanese_name": "小倉トースト",
         "price": 580
@@ -28,19 +28,19 @@
       },
       {
         "category": "Personal Care",
-        "english_name": "Epitoika No Mentis",
+        "english_name": "Shrimp and squid with spicy pollock roe",
         "japanese_name": "エピトイカノメンティサ",
         "price": 288
       },
       {
-        "category": "Drink",
-        "english_name": "Warm Steamed Tea",
+        "category": "Food",
+        "english_name": "Hot side dishes",
         "japanese_name": "温蒸茶",
         "price": 380
       },
       {
-        "category": "Drink",
-        "english_name": "Warm Steamed Tea",
+        "category": "Food",
+        "english_name": "Hot side dishes",
         "japanese_name": "温蒸茶",
         "price": 498
       }
@@ -53,8 +53,8 @@
     "items": [
       {
         "category": "Snack",
-        "english_name": "Tezukuri O-kagiri Yakitori",
-        "japanese_name": "",
+        "english_name": "Hand rolled rice ball",
+        "japanese_name": "手巻おにぎり 焼鮭",
         "price": 128
       }
     ],
@@ -67,7 +67,7 @@
       {
         "category": "Snack",
         "english_name": "Karaage棒 (Fried Chicken Stick)",
-        "japanese_name": "",
+        "japanese_name": "からあげ棒",
         "price": 184
       }
     ],
@@ -113,19 +113,6 @@
     "tax_amount": 13,
     "total_amount": 181
   },
-  "IMG_7251.jpg": {
-    "items": [
-      {
-        "category": "",
-        "english_name": "",
-        "japanese_name": "",
-        "price": 0
-      }
-    ],
-    "store_name": "",
-    "tax_amount": 0,
-    "total_amount": 0
-  },
   "IMG_7253.HEIC": {
     "items": [
       {
@@ -142,7 +129,7 @@
       },
       {
         "category": "Groceries",
-        "english_name": "Kimurasya spicy chicken soup",
+        "english_name": "Kimurasya spicy chicken broth",
         "japanese_name": "気むずかし家 辛鶏白湯 バイハン30レジ 袋大1枚",
         "price": 248
       },
@@ -156,19 +143,6 @@
     "store_name": "Seven-Eleven Yoshida Campus Store",
     "tax_amount": 67,
     "total_amount": 915
-  },
-  "IMG_7253.jpg": {
-    "items": [
-      {
-        "category": "",
-        "english_name": "",
-        "japanese_name": "",
-        "price": 0
-      }
-    ],
-    "store_name": "",
-    "tax_amount": 0,
-    "total_amount": 0
   },
   "IMG_7254.HEIC": {
     "items": [
@@ -187,267 +161,165 @@
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
+        "english_name": "Cheese Burger",
+        "japanese_name": "Cheese Burger",
+        "price": 2400
       },
       {
         "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
+        "english_name": "Straight",
+        "japanese_name": "Straight",
+        "price": 500
       },
       {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "category": "Food",
+        "english_name": "Chili Cheese Fries",
+        "japanese_name": "Chili Cheese Fries",
+        "price": 700
+      },
+      {
+        "category": "Drink",
+        "english_name": "Cola",
+        "japanese_name": "Cola",
+        "price": 400
+      },
+      {
+        "category": "Drink",
+        "english_name": "Peach Squash",
+        "japanese_name": "Peach Squash",
+        "price": 400
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Sugeez",
+    "tax_amount": 440,
+    "total_amount": 10000
   },
   "IMG_7256.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Pork Yakitori Bento",
+        "japanese_name": "豚焼肉弁当",
+        "price": 550
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "7-Eleven Japan",
+    "tax_amount": 44,
+    "total_amount": 594
   },
   "IMG_7257.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
         "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Tully's Coffee Black 390ml",
+        "japanese_name": "タリーズコーヒーブラック 390ml",
+        "price": 162
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Japan セブン-イレブン",
+    "tax_amount": 12,
+    "total_amount": 174
   },
   "IMG_7259.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "BIO Honey with 100 types of flowers for intestinal activity",
+        "japanese_name": "ビオ 腸活百花はちみつ",
+        "price": 168
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Keio Yoyogi-Uehara Campus Store",
+    "tax_amount": 13,
+    "total_amount": 181
   },
   "IMG_7260.HEIC": {
     "items": [
       {
         "category": "Drink",
-        "english_name": "Premium Corn Tea 600ml",
-        "japanese_name": "７プレミアムコーンチャー600ml",
+        "english_name": "7 Premium Coffee 600ml",
+        "japanese_name": "７プレミアムコーヒー６００ｍｌ",
         "price": 108
       }
     ],
-    "store_name": "Seven-Eleven Keio Yamanashi Campus Store",
+    "store_name": "Seven-Eleven Japan セブン-イレブン",
     "tax_amount": 8,
     "total_amount": 116
   },
   "IMG_7261.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "category": "Snack",
+        "english_name": "Morinaga Interry Multi-Mineral",
+        "japanese_name": "森永　ｲﾝﾀﾞｽﾘｰ　ﾏﾙﾁﾐﾈﾗﾙ",
+        "price": 210
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Japan",
+    "tax_amount": 16,
+    "total_amount": 226
   },
   "IMG_7262.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Croquette Sandwich with Premium Sauce",
+        "japanese_name": "コダワリソースナンキコロックパン",
+        "price": 168
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Keio Yoyogi-Uehara Campus Store",
+    "tax_amount": 13,
+    "total_amount": 181
   },
   "IMG_7263.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
+        "english_name": "Hot Japanese Rice Bowl with Tempura Bits and Fried Egg",
+        "japanese_name": "温玉唐揚げ丼",
+        "price": 680
       },
       {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
+        "category": "Snack",
+        "english_name": "7-Eleven's 50% off Wafer Cookie",
+        "japanese_name": "7P トウチツ50%オフワッフﾙ バイオ30ﾚｼﾞ 袋中1枚",
+        "price": 118
       },
       {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
+        "category": "Other",
+        "english_name": "Plastic bag",
+        "japanese_name": "バイオ30レジ袋中1枚",
         "price": 3
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Japan",
+    "tax_amount": 63,
+    "total_amount": 864
   },
   "IMG_7264.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
+        "category": "Snack",
+        "english_name": "Popleft Gourmet Cheese Snacks 50g",
+        "japanese_name": "ポプレミア おつまみチーズ50g",
+        "price": 118
       },
       {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
+        "category": "Snack",
+        "english_name": "Kamukamu Lemon",
+        "japanese_name": "かむかむレモン",
         "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Keio Yoyogi-Uehara Campus Store",
+    "tax_amount": 21,
+    "total_amount": 289
   },
   "IMG_7265.HEIC": {
     "items": [
       {
-        "category": "Groceries",
+        "category": "Food",
         "english_name": "Tasty Tonkatsu Rice Bowl",
         "japanese_name": "味しみロースかつ丼",
         "price": 648
@@ -460,243 +332,111 @@
   "IMG_7267.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
         "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Various Coffee/Black Tea/Green Tea",
+        "japanese_name": "コーヒー/紅茶/煎茶　各種",
+        "price": 110
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Co-op",
+    "tax_amount": 8,
+    "total_amount": 110
   },
   "IMG_7268.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
+        "english_name": "Inari Sushi (3 pieces)",
+        "japanese_name": "いなり3個入り",
+        "price": 328
       },
       {
         "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Fried Chicken Stick",
+        "japanese_name": "からあげ棒",
+        "price": 184
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
+    "store_name": "Seven-Eleven Keio University Hiyoshi Campus Store",
     "tax_amount": 40,
-    "total_amount": 533
+    "total_amount": 552
   },
   "IMG_7269.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
         "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Starbucks Black Coffee 500ml",
+        "japanese_name": "スターバックスBLACK500ml",
+        "price": 188
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Keio University Yokohama Campus Store",
+    "tax_amount": 15,
+    "total_amount": 203
   },
   "IMG_7270.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
         "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "7-Eleven Yuzu Lemon Soda 500ml",
+        "japanese_name": "7Pゆずれもんサイダー 500ml",
+        "price": 108
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Keio Yoyogi-Uehara Campus Store",
+    "tax_amount": 8,
+    "total_amount": 116
   },
   "IMG_7272.HEIC": {
     "items": [
       {
-        "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
         "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Oi Ocha Strong Tea 600ml",
+        "japanese_name": "お〜いお茶 濃い茶600ml",
+        "price": 153
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "7-Eleven Japan",
+    "tax_amount": 12,
+    "total_amount": 165
   },
   "IMG_7273.HEIC": {
     "items": [
       {
-        "category": "Drink",
-        "english_name": "Coffee",
-        "japanese_name": "コーヒー",
+        "category": "Food",
+        "english_name": "Cafe Box Taco Rice",
+        "japanese_name": "CAFEBOX タ コライス",
         "price": 698
-      },
-      {
-        "category": "Drink",
-        "english_name": "Cafe Box Rise",
-        "japanese_name": "CAFEBOXライズ",
-        "price": 698
-      },
-      {
-        "category": "Groceries",
-        "english_name": "Sandwich",
-        "japanese_name": "サンドウィッチ",
-        "price": 753
       }
     ],
-    "store_name": "Seven Eleven",
-    "tax_amount": 160,
-    "total_amount": 2158
+    "store_name": "7-Eleven Japan",
+    "tax_amount": 55,
+    "total_amount": 753
   },
   "IMG_7274.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Meat Doria with plenty of sauce",
+        "japanese_name": "たっぷりソースミートドリア",
+        "price": 370
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Japan セブン-イレブン",
+    "tax_amount": 29,
+    "total_amount": 399
   },
   "IMG_7275.HEIC": {
     "items": [
       {
         "category": "Food",
-        "english_name": "FamiChiki (Boneless Fried Chicken)",
-        "japanese_name": "ファミチキ (骨なし)",
-        "price": 220
-      },
-      {
-        "category": "Drink",
-        "english_name": "Green Tea 600ml",
-        "japanese_name": "お茶 600ml",
-        "price": 160
-      },
-      {
-        "category": "Food",
-        "english_name": "Curry Bread",
-        "japanese_name": "カレーパン",
-        "price": 150
-      },
-      {
-        "category": "Household",
-        "english_name": "Shopping Bag M",
-        "japanese_name": "レジ袋 M",
-        "price": 3
+        "english_name": "Nissin Cup Noodle Tom Yum Kung",
+        "japanese_name": "日清カップヌードル トムヤムクン",
+        "price": 248
       }
     ],
-    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
-    "tax_amount": 40,
-    "total_amount": 533
+    "store_name": "Seven-Eleven Keio University Yokohama Campus Store",
+    "tax_amount": 19,
+    "total_amount": 267
   }
 }
