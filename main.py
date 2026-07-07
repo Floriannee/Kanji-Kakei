@@ -512,7 +512,7 @@ class ReceiptApp(ctk.CTk):
             <body>
                 <div class="container">
                     <header>
-                        <div class="logo">🇯🇵 Kanji-Kakei <span>. Dashboard</span></div>
+                        <div class="logo">🇯🇵 Kanji-Kakei <span>Dashboard</span></div>
                         <div class="nav-tabs">
                             <button class="tab-btn active" onclick="switchTab('analysis')">Receipt Analysis</button>
                             <button class="tab-btn" onclick="switchTab('recap')">Monthly Summary Breakdown</button>
