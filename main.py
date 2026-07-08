@@ -511,6 +511,7 @@ def generate_html_dashboard() -> bool:
             
             received_amount = 0
             change_amount = 0
+            discount_amount = 0
             valid_item_rows = []
 
             for r in records:
@@ -533,6 +534,11 @@ def generate_html_dashboard() -> bool:
                     # Detect change lines
                     if "change" in eng_name or "お釣" in jp_name or "お釣り" in jp_name or category == "change":
                         change_amount = float(safe_int(r.get("price")))
+                        continue
+
+                    # Detect discounts / cashless refunds
+                    if "discount" in eng_name or "refund" in eng_name or "還元" in jp_name or "値引" in jp_name or category == "discount":
+                        discount_amount = float(safe_int(r.get("price")))
                         continue
                         
                     valid_item_rows.append(r)
@@ -617,6 +623,16 @@ def generate_html_dashboard() -> bool:
                     <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Service Charge / Fees</td>
                     <td style="text-align: center;"><span class="badge badge-other">Service</span></td>
                     <td class="item-price-cell" data-jpy="{last_receipt_service_charge}" style="text-align: right;"><strong>¥{last_receipt_service_charge:,.0f}</strong></td>
+                    <td></td>
+                </tr>
+                """
+
+            if discount_amount > 0:
+                receipt_items_html += f"""
+                <tr style="font-style: italic; color: #27ae60;">
+                    <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem; color: #27ae60;">Cashless Refund / Discounts</td>
+                    <td style="text-align: center;"><span class="badge badge-discount" style="background-color: #27ae60; color: white;">Discount</span></td>
+                    <td class="item-price-cell" data-jpy="-{discount_amount}" style="text-align: right; color: #27ae60;"><strong>-¥{discount_amount:,.0f}</strong></td>
                     <td></td>
                 </tr>
                 """
@@ -1210,30 +1226,32 @@ def generate_html_dashboard() -> bool:
                     const categoryTotals = {{}};
 
                     filteredRecords.forEach(r => {{
-                        if ((r.category || '').toLowerCase() === 'change') return;
-                        const price = parseFloat(r.price) || 0;
-                        const qty = parseFloat(r.quantity) || 1;
-                        const totalItemPrice = price * qty;
                         const recKey = (r.date || '') + ' - ' + (r.store_name || '');
                         uniqueReceiptsSet.add(recKey);
 
                         if (!uniqueReceiptsData[recKey]) {{
                             uniqueReceiptsData[recKey] = {{
                                 tax_amount: parseFloat(r.tax_amount) || 0,
-                                tax_type: r.tax_type || 'included'
+                                tax_type: r.tax_type || 'included',
+                                receipt_total: parseFloat(r.receipt_total) || 0
                             }};
                         }}
 
                         const cat = (r.category || 'Other').trim();
-                        categoryTotals[cat] = (categoryTotals[cat] || 0) + totalItemPrice;
+                        if (cat.toLowerCase() !== 'change' && cat.toLowerCase() !== 'discount') {{
+                            const price = parseFloat(r.price) || 0;
+                            const qty = parseFloat(r.quantity) || 1;
+                            const totalItemPrice = price * qty;
+                            categoryTotals[cat] = (categoryTotals[cat] || 0) + totalItemPrice;
+                        }}
                     }});
 
                     const uniqueReceipts = uniqueReceiptsSet.size;
 
-                    // Calculate items sum
+                    // Calculate sum of all unique receipt totals
                     let totalGlobal = 0;
-                    Object.keys(categoryTotals).forEach(cat => {{
-                        totalGlobal += categoryTotals[cat];
+                    Object.keys(uniqueReceiptsData).forEach(key => {{
+                        totalGlobal += uniqueReceiptsData[key].receipt_total;
                     }});
 
                     // Compute tax categories and adjustments
@@ -1243,7 +1261,6 @@ def generate_html_dashboard() -> bool:
                         totalTax += rec.tax_amount;
                         if (rec.tax_type === 'excluded') {{
                             categoryTotals['Tax'] = (categoryTotals['Tax'] || 0) + rec.tax_amount;
-                            totalGlobal += rec.tax_amount;
                         }}
                     }});
 
@@ -1360,27 +1377,10 @@ def generate_html_dashboard() -> bool:
                         transactionHistoryBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No transactions recorded for this period.</td></tr>';
                     }} else {{
                         const receiptTotalsMap = {{}};
-                        const receiptTaxMap = {{}};
-                        const receiptTaxTypeMap = {{}};
                         
                         filteredRecords.forEach(r => {{
-                            if ((r.category || '').toLowerCase() === 'change') return;
                             const recKey = (r.date || '') + ' ||| ' + (r.store_name || '');
-                            const price = parseFloat(r.price) || 0;
-                            const qty = parseFloat(r.quantity) || 1;
-                            receiptTotalsMap[recKey] = (receiptTotalsMap[recKey] || 0) + (price * qty);
-                            
-                            if (r.tax_type === 'excluded') {{
-                                receiptTaxMap[recKey] = parseFloat(r.tax_amount) || 0;
-                                receiptTaxTypeMap[recKey] = 'excluded';
-                            }}
-                        }});
-
-                        // Add excluded tax to the dynamic totals
-                        Object.keys(receiptTotalsMap).forEach(key => {{
-                            if (receiptTaxTypeMap[key] === 'excluded') {{
-                                receiptTotalsMap[key] += (receiptTaxMap[key] || 0);
-                            }}
+                            receiptTotalsMap[recKey] = parseFloat(r.receipt_total) || 0;
                         }});
 
                         const sortedReceiptKeys = Object.keys(receiptTotalsMap).sort((a, b) => {{
