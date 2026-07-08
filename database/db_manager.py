@@ -184,15 +184,26 @@ def get_recent_receipts(limit: int = 10) -> list:
         conn.close()
 
 
-def delete_receipt_records(date_str: str, store_name: str) -> bool:
-    """Delete a receipt matching the date and store name from SQLite database."""
+def delete_receipt_records(date_str: str, store_name: str, image_path: str = "") -> bool:
+    """Delete a receipt matching the date, store name, and optional image path from SQLite database."""
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM receipts WHERE store_name = ? AND date = ?", (store_name, date_str))
-        row = cursor.fetchone()
-        if row:
-            receipt_id = row[0]
+        
+        receipt_id = None
+        if image_path:
+            cursor.execute("SELECT id FROM receipts WHERE image_file_path = ?", (image_path,))
+            row = cursor.fetchone()
+            if row:
+                receipt_id = row[0]
+                
+        if not receipt_id:
+            cursor.execute("SELECT id FROM receipts WHERE store_name = ? AND date = ?", (store_name, date_str))
+            row = cursor.fetchone()
+            if row:
+                receipt_id = row[0]
+                
+        if receipt_id:
             cursor.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))
             conn.commit()
             logger.info(f"Deleted receipt {receipt_id} from SQLite.")
@@ -205,23 +216,37 @@ def delete_receipt_records(date_str: str, store_name: str) -> bool:
         return False
 
 
-def delete_single_item_records(date_str: str, store_name: str, jp_name: str, eng_name: str) -> bool:
-    """Delete a single line item matching date, store, and item names from SQLite database."""
+def delete_single_item_records(date_str: str, store_name: str, jp_name: str, eng_name: str, image_path: str = "") -> bool:
+    """Delete a single line item matching date, store, item names, and optional image path from SQLite database."""
     try:
         conn = get_connection()
         cursor = conn.cursor()
         
-        # Find receipt_id
-        cursor.execute("SELECT id FROM receipts WHERE store_name = ? AND date = ?", (store_name, date_str))
-        row = cursor.fetchone()
-        if row:
-            receipt_id = row[0]
-            # Delete from line_items where receipt_id matches, and either japanese_name or english_name matches
+        # Find receipt_id using image_path if available
+        receipt_id = None
+        if image_path:
+            cursor.execute("SELECT id FROM receipts WHERE image_file_path = ?", (image_path,))
+            row = cursor.fetchone()
+            if row:
+                receipt_id = row[0]
+                
+        if not receipt_id:
+            cursor.execute("SELECT id FROM receipts WHERE store_name = ? AND date = ?", (store_name, date_str))
+            row = cursor.fetchone()
+            if row:
+                receipt_id = row[0]
+                
+        if receipt_id:
+            # Delete only one item row matching the names
             cursor.execute("""
-                DELETE FROM line_items 
+                SELECT id FROM line_items 
                 WHERE receipt_id = ? 
                 AND (item_name = ? OR english_name = ?)
+                LIMIT 1
             """, (receipt_id, jp_name, eng_name))
+            item_row = cursor.fetchone()
+            if item_row:
+                cursor.execute("DELETE FROM line_items WHERE id = ?", (item_row[0],))
             
             # Get tax_amount and tax_type
             cursor.execute("SELECT tax_amount, tax_type FROM receipts WHERE id = ?", (receipt_id,))

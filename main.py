@@ -19,7 +19,7 @@ import cv2
 # Config and Modules import
 from config.settings import OUTPUT_DIR
 from database.db_manager import init_db, insert_receipt, delete_receipt_records, delete_single_item_records
-from database.csv_manager import init_csv, append_items_to_csv, load_all_items, delete_items_from_csv, delete_single_item_from_csv, delete_items_by_id
+from database.csv_manager import init_csv, append_items_to_csv, load_all_items, delete_items_from_csv, delete_single_item_from_csv, delete_items_by_id, heal_receipt_totals
 from utils.image_processing import deskew_and_crop, opencv_to_pil
 from inference.pipeline import ReceiptParser
 
@@ -452,6 +452,12 @@ def generate_html_dashboard() -> bool:
     Returns True on success, False on error.
     """
     try:
+        # Heal receipt totals automatically on dashboard generation
+        try:
+            heal_receipt_totals()
+        except Exception as heal_err:
+            logger.error(f"Failed to auto-heal receipt totals: {heal_err}")
+            
         records = load_all_items()
         
         # Read last processed duration if available
@@ -468,6 +474,7 @@ def generate_html_dashboard() -> bool:
             last_receipt_date = "N/A"
             last_receipt_store = "No Scanned Receipts"
             last_receipt_image_path = ""
+            last_receipt_image_path_escaped = ""
             last_savings_advice = "Upload your first receipt using the dropzone on the left to get started!"
             last_receipt_total = 0
             last_receipt_subtotal = 0
@@ -489,6 +496,7 @@ def generate_html_dashboard() -> bool:
             last_receipt_date = records[-1].get("date") or "Unknown"
             last_receipt_store = records[-1].get("store_name") or "Unknown"
             last_receipt_image_path = records[-1].get("image_path") or ""
+            last_receipt_image_path_escaped = last_receipt_image_path.replace("\\", "/")
             last_savings_advice = records[-1].get("savings_advice") or "No advice available."
             last_receipt_tax = float(safe_int(records[-1].get("tax_amount") or 0))
             last_receipt_tax_type = records[-1].get("tax_type") or "included"
@@ -558,6 +566,7 @@ def generate_html_dashboard() -> bool:
                 escaped_store = r.get('store_name', '').replace("'", "\\'")
                 escaped_jp = r.get('japanese_name', '').replace("'", "\\'")
                 escaped_eng = r.get('english_name', '').replace("'", "\\'")
+                escaped_img = r.get('image_path', '').replace("\\", "\\\\").replace("'", "\\'")
 
                 is_change = "change" in r.get('english_name', '').lower() or "change" in r.get('japanese_name', '').lower() or r.get('category', '').lower() == 'change'
                 if is_change:
@@ -576,9 +585,6 @@ def generate_html_dashboard() -> bool:
                     <td class="item-price-cell" data-jpy="{price}"><strong>¥{price:,.0f}</strong></td>
                     <td style="text-align: center; font-weight: 600; color: var(--primary);">{qty}</td>
                     <td class="item-price-cell" data-jpy="{price * qty}" style="font-weight: 600; color: var(--accent); text-align: right;"><strong>¥{price * qty:,.0f}</strong></td>
-                    <td>
-                        <button onclick="deleteSingleItem('{r.get('date')}', '{escaped_store}', '{escaped_jp}', '{escaped_eng}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer;">Delete</button>
-                    </td>
                 </tr>
                 """
             # Compute total and service charge
@@ -603,7 +609,6 @@ def generate_html_dashboard() -> bool:
                 <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Subtotal (Pre-tax)</td>
                 <td></td>
                 <td class="item-price-cell" data-jpy="{last_receipt_subtotal}" style="text-align: right;"><strong>¥{last_receipt_subtotal:,.0f}</strong></td>
-                <td></td>
             </tr>
             """
 
@@ -613,10 +618,17 @@ def generate_html_dashboard() -> bool:
                     <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Tax ({last_receipt_tax_type.capitalize()})</td>
                     <td style="text-align: center;"><span class="badge badge-tax">Tax</span></td>
                     <td class="item-price-cell" data-jpy="{last_receipt_tax}" style="text-align: right;"><strong>¥{last_receipt_tax:,.0f}</strong></td>
-                    <td></td>
                 </tr>
                 """
 
+            if last_receipt_service_charge > 0:
+                receipt_items_html += f"""
+                <tr style="font-weight: bold; {service_charge_style}">
+                    <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Service Charge / Rounding</td>
+                    <td style="text-align: center;"><span class="badge badge-tax" style="background-color: #f39c12; color: white;">Service</span></td>
+                    <td id="latest-service-charge" class="item-price-cell" data-jpy="{last_receipt_service_charge}" style="text-align: right;"><strong>¥{last_receipt_service_charge:,.0f}</strong></td>
+                </tr>
+                """
 
             if discount_amount > 0:
                 receipt_items_html += f"""
@@ -624,7 +636,6 @@ def generate_html_dashboard() -> bool:
                     <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem; color: #27ae60;">Cashless Refund / Discounts</td>
                     <td style="text-align: center;"><span class="badge badge-discount" style="background-color: #27ae60; color: white;">Discount</span></td>
                     <td class="item-price-cell" data-jpy="-{discount_amount}" style="text-align: right; color: #27ae60;"><strong>-¥{discount_amount:,.0f}</strong></td>
-                    <td></td>
                 </tr>
                 """
 
@@ -633,7 +644,6 @@ def generate_html_dashboard() -> bool:
                 <td colspan="4" style="text-align: right; color: var(--primary); padding: 12px 12px;">Total Paid (with Tax)</td>
                 <td></td>
                 <td class="item-price-cell" data-jpy="{last_receipt_total}" style="color: var(--accent); font-size: 1.15rem; text-align: right;"><strong>¥{last_receipt_total:,.0f}</strong></td>
-                <td></td>
             </tr>
             """
 
@@ -643,7 +653,6 @@ def generate_html_dashboard() -> bool:
                     <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem;">Cash Received</td>
                     <td></td>
                     <td class="item-price-cell" data-jpy="{received_amount}" style="text-align: right;"><strong>¥{received_amount:,.0f}</strong></td>
-                    <td></td>
                 </tr>
                 """
 
@@ -653,7 +662,6 @@ def generate_html_dashboard() -> bool:
                     <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem;">Change Returned</td>
                     <td></td>
                     <td class="item-price-cell" data-jpy="{change_amount}" style="text-align: right;"><strong>¥{change_amount:,.0f}</strong></td>
-                    <td></td>
                 </tr>
                 """
 
@@ -875,7 +883,7 @@ def generate_html_dashboard() -> bool:
                                 <div style="overflow-x: auto;">
                                     <table>
                                         <thead>
-                                            <tr><th>Japanese Raw OCR</th><th>Translation / Context</th><th>Category</th><th>Unit Price</th><th style="text-align: center;">Qty</th><th style="text-align: right;">Total</th><th>Action</th></tr>
+                                            <tr><th>Japanese Raw OCR</th><th>Translation / Context</th><th>Category</th><th>Unit Price</th><th style="text-align: center;">Qty</th><th style="text-align: right;">Total</th></tr>
                                         </thead>
                                         <tbody>
                                             {receipt_items_html}
@@ -886,7 +894,7 @@ def generate_html_dashboard() -> bool:
                         </div>
                     </div>
 
-                    <button onclick="deleteTransaction('{last_receipt_date}', '{last_receipt_store}')" class="btn" style="background-color: #e74c3c; color: white; width: 100%; margin-top: 25px; font-weight: bold; padding: 12px; font-size: 0.95rem; border-radius: 8px; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.2);">Delete This Receipt</button>
+                    <button onclick="deleteTransaction('{last_receipt_date}', '{last_receipt_store}', '{last_receipt_image_path_escaped}')" class="btn" style="background-color: #e74c3c; color: white; width: 100%; margin-top: 25px; font-weight: bold; padding: 12px; font-size: 0.95rem; border-radius: 8px; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.2);">Delete This Receipt</button>
                 </main>
 
                 <main id="recap" class="tab-content">
@@ -1217,7 +1225,8 @@ def generate_html_dashboard() -> bool:
                     const categoryTotals = {{}};
 
                     filteredRecords.forEach(r => {{
-                        const recKey = (r.date || '') + ' - ' + (r.store_name || '');
+                        const imgName = r.image_path ? r.image_path.split(/[\\\\/]/).pop() : '';
+                        const recKey = (r.date || '') + ' - ' + (r.store_name || '') + (imgName ? ' (' + imgName + ')' : '');
                         uniqueReceiptsSet.add(recKey);
 
                         if (!uniqueReceiptsData[recKey]) {{
@@ -1370,7 +1379,8 @@ def generate_html_dashboard() -> bool:
                         const receiptTotalsMap = {{}};
                         
                         filteredRecords.forEach(r => {{
-                            const recKey = (r.date || '') + ' ||| ' + (r.store_name || '');
+                            const imgPath = r.image_path || '';
+                            const recKey = (r.date || '') + ' ||| ' + (r.store_name || '') + ' ||| ' + imgPath;
                             receiptTotalsMap[recKey] = parseFloat(r.receipt_total) || 0;
                         }});
 
@@ -1384,15 +1394,17 @@ def generate_html_dashboard() -> bool:
                             const parts = key.split(' ||| ');
                             const date = parts[0];
                             const store = parts[1];
+                            const imgPath = parts[2] || '';
+                            const imgName = imgPath ? imgPath.split(/[\\\\/]/).pop() : '';
                             const totalVal = receiptTotalsMap[key];
 
                             transactionHistoryBody.innerHTML += `
-                            <tr>
+                            <tr onclick="viewReceiptDetails('${{date.replace(/'/g, "\\'")}}', '${{store.replace(/'/g, "\\'")}}', '${{imgPath.replace(/\\\\/g, '\\\\').replace(/'/g, "\\'")}}')" style="cursor: pointer;">
                                 <td><strong>${{date}}</strong></td>
-                                <td>${{store}}</td>
+                                <td>${{store}}${{imgName ? ` <br><small style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">(${{imgName}})</small>` : ''}}</td>
                                 <td><strong>${{formatPrice(totalVal)}}</strong></td>
                                 <td>
-                                    <button onclick="deleteTransaction('${{date}}', '${{store}}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s;">Delete</button>
+                                    <button onclick="event.stopPropagation(); deleteTransaction('${{date}}', '${{store}}', '${{imgPath.replace(/\\\\/g, '/')}}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s;">Delete</button>
                                 </td>
                             </tr>
                             `;
@@ -1400,7 +1412,7 @@ def generate_html_dashboard() -> bool:
                     }}
                 }}
 
-                function deleteTransaction(date, storeName) {{
+                function deleteTransaction(date, storeName, imagePath) {{
                     if (!confirm(`Are you sure you want to delete the transaction from "${{storeName}}" on ${{date}}?`)) {{
                         return;
                     }}
@@ -1412,7 +1424,8 @@ def generate_html_dashboard() -> bool:
                         }},
                         body: JSON.stringify({{
                             date: date,
-                            store_name: storeName
+                            store_name: storeName,
+                            image_path: imagePath
                         }})
                     }})
                     .then(res => res.json())
@@ -1428,7 +1441,7 @@ def generate_html_dashboard() -> bool:
                     }});
                 }}
 
-                function deleteSingleItem(date, storeName, jpName, engName) {{
+                function deleteSingleItem(itemId, date, storeName, jpName, engName, imagePath) {{
                     if (!confirm(`Remove item "${{engName || jpName}}"?`)) {{
                         return;
                     }}
@@ -1439,10 +1452,12 @@ def generate_html_dashboard() -> bool:
                             'Content-Type': 'application/json'
                         }},
                         body: JSON.stringify({{
+                            id: itemId,
                             date: date,
                             store_name: storeName,
                             japanese_name: jpName,
-                            english_name: engName
+                            english_name: engName,
+                            image_path: imagePath
                         }})
                     }})
                     .then(res => res.json())
@@ -1456,6 +1471,183 @@ def generate_html_dashboard() -> bool:
                     .catch(err => {{
                         alert('Error communicating with server: ' + err.message);
                     }});
+                }}
+
+                function viewReceiptDetails(date, storeName, imagePath) {{
+                    const items = allRecords.filter(r => {{
+                        if (imagePath && r.image_path === imagePath) return true;
+                        if (!imagePath && r.date === date && r.store_name === storeName) return true;
+                        return false;
+                    }});
+                    
+                    if (items.length === 0) return;
+                    
+                    const tabLinks = document.querySelectorAll('.sidebar .nav-link');
+                    const tabContents = document.querySelectorAll('.tab-content');
+                    
+                    tabLinks.forEach(link => {{
+                        if (link.getAttribute('onclick').includes('analysis')) {{
+                            link.classList.add('active');
+                        }} else {{
+                            link.classList.remove('active');
+                        }}
+                    }});
+                    
+                    tabContents.forEach(content => {{
+                        if (content.id === 'analysis') {{
+                            content.classList.add('active');
+                        }} else {{
+                            content.classList.remove('active');
+                        }}
+                    }});
+                    
+                    const storeValEl = document.querySelector('#analysis .receipt-summary .meta-item:nth-child(1) .value');
+                    if (storeValEl) storeValEl.textContent = storeName;
+                    
+                    const dateValEl = document.querySelector('#analysis .receipt-summary .meta-item:nth-child(2) .value');
+                    if (dateValEl) dateValEl.textContent = date;
+                    
+                    const totalVal = parseFloat(items[0].receipt_total) || 0;
+                    const totalValEl = document.getElementById('latest-total-amount');
+                    if (totalValEl) {{
+                        totalValEl.setAttribute('data-jpy', totalVal);
+                        totalValEl.textContent = 'Invoice Total: ' + formatPrice(totalVal);
+                    }}
+                    
+                    const imageCard = document.querySelector('#analysis .grid-col-left .card:nth-child(2)');
+                    const imageEl = document.querySelector('#analysis .receipt-img');
+                    if (imagePath) {{
+                        const imgUrl = '/receipts/' + imagePath.split(/[\\\\/]/).pop();
+                        if (imageEl) imageEl.src = imgUrl;
+                        if (imageCard) imageCard.style.display = '';
+                    }} else {{
+                        if (imageCard) imageCard.style.display = 'none';
+                    }}
+                    
+                    const tbody = document.querySelector('#analysis table tbody');
+                    tbody.innerHTML = '';
+                    
+                    let subtotal = 0;
+                    let discount = 0;
+                    let received = 0;
+                    let change = 0;
+                    
+                    items.forEach(r => {{
+                        const price = parseFloat(r.price) || 0;
+                        const qty = parseFloat(r.quantity) || 1;
+                        const category = (r.category || 'Other').trim();
+                        const catLower = category.toLowerCase();
+                        
+                        if (catLower === 'discount' || r.english_name.toLowerCase().includes('discount') || r.english_name.toLowerCase().includes('refund')) {{
+                            discount = price * qty;
+                            return;
+                        }}
+                        if (catLower === 'change' && (r.english_name.toLowerCase().includes('received') || r.english_name.toLowerCase().includes('cash'))) {{
+                            received = price * qty;
+                            return;
+                        }}
+                        if (catLower === 'change' && (r.english_name.toLowerCase().includes('change') || r.english_name.toLowerCase().includes('return'))) {{
+                            change = price * qty;
+                            return;
+                        }}
+                        
+                        subtotal += price * qty;
+                        
+                        const badgeClass = category.toLowerCase().replace(' & ', '-').replace(' ', '-');
+                        let categoryHtml = `<span class="badge badge-${{badgeClass}}">${{category}}</span>`;
+                        if (catLower === 'change') {{
+                            categoryHtml = '<span class="badge badge-change">Change</span>';
+                        }}
+                        
+                        const noteHtml = r.note ? `<br><small style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">${{r.note}}</small>` : '';
+                        
+                        tbody.innerHTML += `
+                        <tr>
+                            <td><span class="jp-text">${{r.japanese_name || ''}}</span></td>
+                            <td><strong>${{r.english_name || ''}}</strong>${{noteHtml}}</td>
+                            <td>${{categoryHtml}}</td>
+                            <td class="item-price-cell" data-jpy="${{price}}"><strong>${{formatPrice(price)}}</strong></td>
+                            <td style="text-align: center; font-weight: 600; color: var(--primary);">${{qty}}</td>
+                            <td class="item-price-cell" data-jpy="${{price * qty}}" style="font-weight: 600; color: var(--accent); text-align: right;"><strong>${{formatPrice(price * qty)}}</strong></td>
+                        </tr>
+                        `;
+                    }});
+                    
+                    const tax = parseFloat(items[0].tax_amount) || 0;
+                    const taxType = items[0].tax_type || 'included';
+                    
+                    tbody.innerHTML += `
+                    <tr style="border-top: 2px solid var(--border); font-weight: bold;">
+                        <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Subtotal (Pre-tax)</td>
+                        <td></td>
+                        <td class="item-price-cell" data-jpy="${{subtotal}}" style="text-align: right;"><strong>${{formatPrice(subtotal)}}</strong></td>
+                    </tr>
+                    `;
+                    
+                    if (tax > 0) {{
+                        const taxTypeCap = taxType.charAt(0).toUpperCase() + taxType.slice(1);
+                        tbody.innerHTML += `
+                        <tr style="font-weight: bold;">
+                            <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Tax (${{taxTypeCap}})</td>
+                            <td style="text-align: center;"><span class="badge badge-tax">Tax</span></td>
+                            <td class="item-price-cell" data-jpy="${{tax}}" style="text-align: right;"><strong>${{formatPrice(tax)}}</strong></td>
+                        </tr>
+                        `;
+                    }}
+                    
+                    const serviceCharge = Math.max(0, totalVal - subtotal - (taxType === 'excluded' ? tax : 0));
+                    if (serviceCharge > 0) {{
+                        tbody.innerHTML += `
+                        <tr style="font-weight: bold;">
+                            <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Service Charge / Rounding</td>
+                            <td style="text-align: center;"><span class="badge badge-tax" style="background-color: #f39c12; color: white;">Service</span></td>
+                            <td id="latest-service-charge" class="item-price-cell" data-jpy="${{serviceCharge}}" style="text-align: right;"><strong>${{formatPrice(serviceCharge)}}</strong></td>
+                        </tr>
+                        `;
+                    }}
+                    
+                    if (discount > 0) {{
+                        tbody.innerHTML += `
+                        <tr style="font-style: italic; color: #27ae60;">
+                            <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem; color: #27ae60;">Cashless Refund / Discounts</td>
+                            <td style="text-align: center;"><span class="badge badge-discount" style="background-color: #27ae60; color: white;">Discount</span></td>
+                            <td class="item-price-cell" data-jpy="-${{discount}}" style="text-align: right; color: #27ae60;"><strong>-${{formatPrice(discount)}}</strong></td>
+                        </tr>
+                        `;
+                    }}
+                    
+                    tbody.innerHTML += `
+                    <tr style="background-color: #f8fafc; font-weight: bold; border-top: 2px solid var(--primary); font-size: 1.05rem;">
+                        <td colspan="4" style="text-align: right; color: var(--primary); padding: 12px 12px;">Total Paid (with Tax)</td>
+                        <td></td>
+                        <td class="item-price-cell" data-jpy="${{totalVal}}" style="color: var(--accent); font-size: 1.15rem; text-align: right;"><strong>${{formatPrice(totalVal)}}</strong></td>
+                    </tr>
+                    `;
+                    
+                    if (received > 0) {{
+                        tbody.innerHTML += `
+                        <tr style="font-style: italic; color: var(--text-muted);">
+                            <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem;">Cash Received</td>
+                            <td></td>
+                            <td class="item-price-cell" data-jpy="${{received}}" style="text-align: right;"><strong>${{formatPrice(received)}}</strong></td>
+                        </tr>
+                        `;
+                    }}
+                    
+                    if (change > 0) {{
+                        tbody.innerHTML += `
+                        <tr style="font-style: italic; color: var(--text-muted);">
+                            <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem;">Change Returned</td>
+                            <td></td>
+                            <td class="item-price-cell" data-jpy="${{change}}" style="text-align: right;"><strong>${{formatPrice(change)}}</strong></td>
+                        </tr>
+                        `;
+                    }}
+                    
+                    const deleteBtn = document.querySelector('#analysis > button');
+                    if (deleteBtn) {{
+                        deleteBtn.setAttribute('onclick', `deleteTransaction('${{date}}', '${{storeName}}', '${{imagePath.replace(/\\\\/g, '/')}}')`);
+                    }}
                 }}
 
                 // Init load
@@ -2008,13 +2200,14 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 data = json.loads(post_data.decode('utf-8'))
                 date_str = data.get("date")
                 store_name = data.get("store_name")
+                image_path = data.get("image_path")
                 
                 if not date_str or not store_name:
                     raise ValueError("Date and store name are required to delete a receipt")
                 
                 # Delete from SQLite and CSV
-                delete_receipt_records(date_str, store_name)
-                delete_items_from_csv(date_str, store_name)
+                delete_receipt_records(date_str, store_name, image_path)
+                delete_items_from_csv(date_str, store_name, image_path)
                 
                 # Re-generate the dashboard HTML
                 generate_html_dashboard()
@@ -2053,17 +2246,31 @@ class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 
                 # Parse JSON
                 data = json.loads(post_data.decode('utf-8'))
+                item_id = data.get("id")
                 date_str = data.get("date")
                 store_name = data.get("store_name")
                 jp_name = data.get("japanese_name")
                 eng_name = data.get("english_name")
+                image_path = data.get("image_path")
+                
+                # Pre-fetch image path from CSV if not provided but item_id is present
+                if item_id and not image_path:
+                    try:
+                        from database.csv_manager import load_all_items
+                        records = load_all_items()
+                        for r in records:
+                            if r.get("id") == item_id:
+                                image_path = r.get("image_path")
+                                break
+                    except Exception as load_err:
+                        logger.debug(f"Failed to pre-fetch image path for item ID {item_id}: {load_err}")
                 
                 if not date_str or not store_name:
                     raise ValueError("Date and store name are required to identify the transaction")
                 
                 # Delete from SQLite and CSV
-                delete_single_item_records(date_str, store_name, jp_name, eng_name)
-                delete_single_item_from_csv(date_str, store_name, jp_name, eng_name)
+                delete_single_item_records(date_str, store_name, jp_name, eng_name, image_path)
+                delete_single_item_from_csv(date_str, store_name, jp_name, eng_name, item_id)
                 
                 # Re-generate the dashboard HTML
                 generate_html_dashboard()
