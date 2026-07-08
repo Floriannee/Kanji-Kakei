@@ -1,0 +1,35 @@
+{
+  "_comment": "This is a worked EXAMPLE, not real data. Run generate_template.py against your own images folder to scaffold evaluation/ground_truth.json, then fill in the real correct answers for each of your receipt photos.",
+
+  "receipt_001.jpg": {
+    "store_name": "ファミリーマート 渋谷二丁目店 (FamilyMart)",
+    "total_amount": 533,
+    "tax_amount": 40,
+    "items": [
+      {
+        "japanese_name": "ファミチキ (骨なし)",
+        "english_name": "FamiChiki (Boneless Fried Chicken)",
+        "category": "Food",
+        "price": 220
+      },
+      {
+        "japanese_name": "お茶 600ml",
+        "english_name": "Green Tea 600ml",
+        "category": "Drink",
+        "price": 160
+      },
+      {
+        "japanese_name": "カレーパン",
+        "english_name": "Curry Bread",
+        "category": "Food",
+        "price": 150
+      },
+      {
+        "japanese_name": "レジ袋 M",
+        "english_name": "Shopping Bag M",
+        "category": "Household",
+        "price": 3
+      }
+    ]
+  }
+}

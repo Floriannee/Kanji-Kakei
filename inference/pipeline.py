@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import time
 import base64
 import logging
 import requests
@@ -53,10 +54,18 @@ Return ONLY raw JSON, no markdown, no explanation:
 }
 """
 
+
+class GroqRateLimitError(RuntimeError):
+    def __init__(self, message, retry_after=None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 class ReceiptParser:
     def __init__(self):
         """Initialize receipt parser loading environment credentials."""
         self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
+        self.last_groq_total_time = None
         
         # Log active credentials
         if self.groq_api_key:
@@ -64,25 +73,10 @@ class ReceiptParser:
         else:
             logger.warning("No GROQ_API_KEY environment variable detected.")
 
-    def pil_to_base64_data_url(self, pil_image: Image.Image) -> str:
-        """Convert a PIL image to a base64 encoded string data URL."""
-        # Resize large images to reduce payload size and avoid upload timeouts
-        max_dim = 1280
-        w, h = pil_image.size
-        if max(w, h) > max_dim:
-            ratio = max_dim / max(w, h)
-            pil_image = pil_image.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
-        buffered = io.BytesIO()
-        pil_image.save(buffered, format="JPEG", quality=85)
-        img_bytes = buffered.getvalue()
-        base64_str = base64.b64encode(img_bytes).decode("utf-8")
-        return f"data:image/jpeg;base64,{base64_str}"
-
-    def parse_receipt_image(self, pil_image: Image.Image) -> dict:
+    def parse_receipt_image(self, pil_image: Image.Image, allow_simulation: bool = True, max_retries: int = 5) -> dict:
         """
-        Multimodal inference wrapper with a 2-tier fallback architecture:
-        - TIER 1: Groq API with Llama-4-Scout
-        - TIER 2: Local Simulation Mode (FamilyMart Mock response fallback)
+        Parses a preprocessed receipt image and returns structured JSON details.
+        Leverages Groq API (Tier 1) with retry, falling back to Simulation (Tier 2).
         """
         # Convert image to base64 data URL
         base64_url = self.pil_to_base64_data_url(pil_image)
@@ -91,12 +85,16 @@ class ReceiptParser:
         response = None
         if self.groq_api_key:
             try:
-                logger.info("Invoking TIER 1: Groq API (meta-llama/llama-4-scout-17b-16e-instruct)...")
-                response = self._call_groq_vision(base64_url)
-                logger.info("[Pipeline]  Success via Groq")
+                logger.info("Invoking TIER 1: Groq API with retries...")
+                response = self._call_groq_vision_with_retry(base64_url, max_retries=max_retries)
             except Exception as e:
-                logger.error(f"Tier 1 (Groq) execution failed: {e}. Falling back to Simulation Mode...")
+                logger.error(f"Tier 1 (Groq) execution failed: {e}. "
+                             f"{'Falling back to Simulation Mode...' if allow_simulation else 'Raising (simulation disabled).'}")
+                if not allow_simulation:
+                    raise
         else:
+            if not allow_simulation:
+                raise RuntimeError("GROQ_API_KEY is not set and simulation fallback is disabled.")
             logger.warning("Groq API key not found. Skipping Tier 1...")
 
         # ----------------- TIER 2: SIMULATION MODE -----------------
@@ -224,6 +222,31 @@ class ReceiptParser:
                         
         return data
 
+    def _call_groq_vision_with_retry(self, base64_url: str, max_retries: int = 5) -> dict:
+        """
+        Call Groq, retrying on HTTP 429 with exponential backoff. Without this,
+        a burst of receipts trips Groq's free-tier rate limit and (in the app)
+        every subsequent call falls through to the simulated FamilyMart receipt.
+        The backoff sleeps here are deliberately NOT counted in last_groq_total_time.
+        """
+        for attempt in range(max_retries):
+            try:
+                response = self._call_groq_vision(base64_url)
+                logger.info("[Pipeline]  Success via Groq")
+                return response
+            except GroqRateLimitError as e:
+                if attempt >= max_retries - 1:
+                    raise
+                # Prefer the server-provided retry-after; otherwise exponential backoff.
+                wait = e.retry_after if e.retry_after is not None else (2 ** attempt)
+                logger.warning(
+                    f"Groq rate limited (429). Waiting {wait:.1f}s before retry "
+                    f"{attempt + 1}/{max_retries - 1}..."
+                )
+                time.sleep(wait)
+        # Should not reach here.
+        raise RuntimeError("Exhausted Groq retries without a result.")
+
     def _call_groq_vision(self, base64_url: str) -> dict:
         """Execute HTTP POST call to Groq vision endpoints."""
         url = "https://api.groq.com/openai/v1/chat/completions"
@@ -250,14 +273,38 @@ class ReceiptParser:
             "temperature": 0.1,
             "response_format": {"type": "json_object"}
         }
-        
+
         response = requests.post(url, json=payload, headers=headers, timeout=20)
+
         if response.status_code == 200:
             result = response.json()
+
+            # Capture Groq's own server-side processing time (seconds). This is
+            # queue + prompt + completion time as measured on Groq's side, with
+            # no client network latency or retry-backoff included. Used by the
+            # evaluator for honest timing. Swap to prompt_time + completion_time
+            # if you want to exclude queue time as well.
+            usage = result.get("usage", {}) or {}
+            self.last_groq_total_time = usage.get("total_time")
+
             content = result["choices"][0]["message"]["content"]
             return json.loads(content)
-        else:
-            raise RuntimeError(f"Groq API returned HTTP {response.status_code}: {response.text}")
+
+        # Rate limited: surface a typed error so the retry layer can back off.
+        if response.status_code == 429:
+            retry_after = None
+            header_val = response.headers.get("retry-after")
+            if header_val is not None:
+                try:
+                    retry_after = float(header_val)
+                except ValueError:
+                    retry_after = None
+            raise GroqRateLimitError(
+                f"Groq API rate limited (HTTP 429): {response.text}",
+                retry_after=retry_after,
+            )
+
+        raise RuntimeError(f"Groq API returned HTTP {response.status_code}: {response.text}")
 
     def _get_simulated_response(self) -> dict:
         """Hardcoded simulated FamilyMart JSON response fallback."""
@@ -298,3 +345,16 @@ class ReceiptParser:
             ],
             "savings_advice": "You spent ¥220 on convenience store fried chicken; buying raw chicken at Gyomu Super can save you over 70%!"
         }
+
+    def pil_to_base64_data_url(self, pil_image: Image.Image) -> str:
+        """Converts PIL Image to base64 data url string."""
+        buffered = io.BytesIO()
+        # Handle formats cleanly
+        img_format = pil_image.format if pil_image.format else "JPEG"
+        pil_image.save(buffered, format=img_format)
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        mime_type = f"image/{img_format.lower()}"
+        # standard normalization
+        if mime_type == "image/jpg":
+            mime_type = "image/jpeg"
+        return f"data:{mime_type};base64,{img_str}"

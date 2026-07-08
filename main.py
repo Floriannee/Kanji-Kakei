@@ -1,5 +1,6 @@
 import os
 import time
+import uuid
 import logging
 import threading
 import webbrowser  # To open the interactive HTML Dashboard
@@ -11,14 +12,14 @@ import json
 import base64
 
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, BooleanVar
 from PIL import Image, ImageTk
 import cv2
 
 # Config and Modules import
 from config.settings import OUTPUT_DIR
 from database.db_manager import init_db, insert_receipt, delete_receipt_records, delete_single_item_records
-from database.csv_manager import init_csv, append_items_to_csv, load_all_items, delete_items_from_csv, delete_single_item_from_csv
+from database.csv_manager import init_csv, append_items_to_csv, load_all_items, delete_items_from_csv, delete_single_item_from_csv, delete_items_by_id
 from utils.image_processing import deskew_and_crop, opencv_to_pil
 from inference.pipeline import ReceiptParser
 
@@ -1890,7 +1891,7 @@ class ReceiptReviewWindow(ctk.CTkToplevel):
             logger.error(f"Failed marshalling data validation structures: {general_err}")
 
     def on_cancel(self):
-        """Close the sub-menu without saving anything."""
+        """Close the sub-menu without saving anything, regardless of any deletions made here."""
         logger.info("User cancelled the receipt review. Discarding scanned data.")
         self.destroy()
 
