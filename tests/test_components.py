@@ -106,6 +106,40 @@ class TestCoreComponents(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             parser.parse_receipt_image(img, allow_simulation=False)
         self.assertIn("This image does not appear to be a receipt", str(context.exception))
+
+    def test_bag_categorization_rules(self):
+        parser = ReceiptParser()
+        mock_response = {
+            "store_name": "Test Store",
+            "date": "2026-07-08 19:21:00",
+            "total_amount": 1200,
+            "tax_amount": 80,
+            "tax_type": "included",
+            "items": [
+                {
+                    "japanese_name": "レジ袋 M",
+                    "english_name": "Plastic Bag M",
+                    "category": "Daily Essentials",
+                    "price": 3,
+                    "quantity": 1,
+                    "note": "Test"
+                },
+                {
+                    "japanese_name": "トートバッグ",
+                    "english_name": "Tote Bag",
+                    "category": "Other",
+                    "price": 1000,
+                    "quantity": 1,
+                    "note": "Test"
+                }
+            ],
+            "savings_advice": "Test"
+        }
+        parser._call_groq_vision_with_retry = lambda *args, **kwargs: mock_response
+        img = Image.new('RGB', (100, 100))
+        result = parser.parse_receipt_image(img, allow_simulation=False)
+        self.assertEqual(result["items"][0]["category"], "Other")
+        self.assertEqual(result["items"][1]["category"], "Daily Essentials")
         
 if __name__ == "__main__":
     unittest.main()
