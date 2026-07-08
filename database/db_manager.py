@@ -229,11 +229,25 @@ def delete_single_item_records(date_str: str, store_name: str, jp_name: str, eng
             tax_amount = tax_row[0] or 0 if tax_row else 0
             tax_type = tax_row[1] or "included" if tax_row else "included"
             
-            # Recalculate and update receipt total amount
-            cursor.execute("SELECT SUM(price) FROM line_items WHERE receipt_id = ?", (receipt_id,))
-            items_sum = cursor.fetchone()[0] or 0
+            # Get remaining items to recalculate total
+            cursor.execute("SELECT price, quantity, category FROM line_items WHERE receipt_id = ?", (receipt_id,))
+            remaining_items = cursor.fetchall()
             
-            new_total = items_sum
+            subtotal = 0
+            discount = 0
+            for price, quantity, category in remaining_items:
+                cat_lower = (category or "").lower()
+                price_val = float(price or 0)
+                qty_val = int(quantity or 1)
+                
+                if cat_lower == "change":
+                    continue
+                elif cat_lower == "discount":
+                    discount += price_val * qty_val
+                else:
+                    subtotal += price_val * qty_val
+            
+            new_total = subtotal - discount
             if tax_type == "excluded":
                 new_total += tax_amount
                 

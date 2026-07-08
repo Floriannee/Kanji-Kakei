@@ -215,8 +215,21 @@ def delete_single_item_from_csv(date_str: str, store_name: str, jp_name: str, en
             tax_amount = safe_int(target_transaction_items[0].get("tax_amount") or 0)
             tax_type = target_transaction_items[0].get("tax_type") or "included"
             
-        items_sum = sum(safe_int(item.get("price")) for item in target_transaction_items)
-        new_total = items_sum
+        subtotal = 0
+        discount = 0
+        for item in target_transaction_items:
+            cat_lower = (item.get("category") or "").lower()
+            price_val = safe_int(item.get("price") or 0)
+            qty_val = safe_int(item.get("quantity") or 1)
+            
+            if cat_lower == "change":
+                continue
+            elif cat_lower == "discount":
+                discount += price_val * qty_val
+            else:
+                subtotal += price_val * qty_val
+                
+        new_total = subtotal - discount
         if tax_type == "excluded":
             new_total += tax_amount
         
