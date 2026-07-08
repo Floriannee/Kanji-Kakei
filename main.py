@@ -1210,6 +1210,7 @@ def generate_html_dashboard() -> bool:
                     const categoryTotals = {{}};
 
                     filteredRecords.forEach(r => {{
+                        if ((r.category || '').toLowerCase() === 'change') return;
                         const price = parseFloat(r.price) || 0;
                         const qty = parseFloat(r.quantity) || 1;
                         const totalItemPrice = price * qty;
@@ -1304,7 +1305,8 @@ def generate_html_dashboard() -> bool:
                     }}
 
                     // Populate Top 5 Purchases
-                    const sortedItems = [...filteredRecords].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+                    const purchaseRecords = filteredRecords.filter(r => (r.category || '').toLowerCase() !== 'change');
+                    const sortedItems = [...purchaseRecords].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
                     const top5Items = sortedItems.slice(0, 5);
                     const topItemsBody = document.getElementById('top-items-body');
                     topItemsBody.innerHTML = '';
@@ -1362,6 +1364,7 @@ def generate_html_dashboard() -> bool:
                         const receiptTaxTypeMap = {{}};
                         
                         filteredRecords.forEach(r => {{
+                            if ((r.category || '').toLowerCase() === 'change') return;
                             const recKey = (r.date || '') + ' ||| ' + (r.store_name || '');
                             const price = parseFloat(r.price) || 0;
                             const qty = parseFloat(r.quantity) || 1;
