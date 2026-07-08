@@ -140,6 +140,31 @@ class TestCoreComponents(unittest.TestCase):
         result = parser.parse_receipt_image(img, allow_simulation=False)
         self.assertEqual(result["items"][0]["category"], "Other")
         self.assertEqual(result["items"][1]["category"], "Daily Essentials")
+
+    def test_famichiki_categorization_rules(self):
+        parser = ReceiptParser()
+        mock_response = {
+            "store_name": "FamilyMart",
+            "date": "2026-07-08 19:21:00",
+            "total_amount": 220,
+            "tax_amount": 16,
+            "tax_type": "included",
+            "items": [
+                {
+                    "japanese_name": "ファミチキ (骨なし)",
+                    "english_name": "FamiChiki (Boneless)",
+                    "category": "Dining Out",
+                    "price": 220,
+                    "quantity": 1,
+                    "note": "Test"
+                }
+            ],
+            "savings_advice": "Test"
+        }
+        parser._call_groq_vision_with_retry = lambda *args, **kwargs: mock_response
+        img = Image.new('RGB', (100, 100))
+        result = parser.parse_receipt_image(img, allow_simulation=False)
+        self.assertEqual(result["items"][0]["category"], "Snack")
         
 if __name__ == "__main__":
     unittest.main()
