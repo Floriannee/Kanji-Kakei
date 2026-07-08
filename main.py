@@ -617,15 +617,6 @@ def generate_html_dashboard() -> bool:
                 </tr>
                 """
 
-            if last_receipt_service_charge > 0:
-                receipt_items_html += f"""
-                <tr style="font-weight: bold;">
-                    <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Service Charge / Fees</td>
-                    <td style="text-align: center;"><span class="badge badge-other">Service</span></td>
-                    <td class="item-price-cell" data-jpy="{last_receipt_service_charge}" style="text-align: right;"><strong>¥{last_receipt_service_charge:,.0f}</strong></td>
-                    <td></td>
-                </tr>
-                """
 
             if discount_amount > 0:
                 receipt_items_html += f"""
