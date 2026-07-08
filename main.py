@@ -11,6 +11,17 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox, BooleanVar
 from PIL import Image
 
+# Register HEIC/HEIF support (iPhone photos) if pillow-heif is installed.
+# Kept behind a guard so the GUI still launches if the package is missing
+# (matches dataBaseCreator.py's optional-dependency approach); a user who only
+# ever uploads JPEG/PNG is unaffected.
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+    _HEIC_SUPPORTED = True
+except Exception:
+    _HEIC_SUPPORTED = False
+
 # Config and Modules import
 from config.settings import OUTPUT_DIR
 from database.db_manager import init_db, insert_receipt
@@ -162,7 +173,10 @@ class ReceiptApp(ctk.CTk):
 
     def browse_image(self):
         """Open file dialog window allowing user to locate and pick supported local image types."""
-        file_types = [("Image Files", "*.png *.jpg *.jpeg *.bmp *.tiff"), ("All Files", "*.*")]
+        file_types = [
+            ("Image Files", "*.png *.jpg *.jpeg *.bmp *.tiff *.heic *.heif"),
+            ("All Files", "*.*"),
+        ]
         selected_file = filedialog.askopenfilename(title="Select Receipt File", filetypes=file_types)
 
         if not selected_file:

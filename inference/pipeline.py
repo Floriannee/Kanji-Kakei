@@ -61,10 +61,10 @@ class ReceiptParser:
         self.groq_api_key = os.environ.get("GROQ_API_KEY", "")
 
         # Groq's own server-side processing time (seconds) for the most recent
-        # successful call, read from the API response's usage.total_time. This
-        # excludes our network round-trip and any client-side 429 backoff, so
-        # the evaluator can measure "time when Groq is ready and working"
-        # rather than wall-clock. None if the last result came from Simulation.
+        # successful call, read from the API response's usage.total_time. Kept
+        # available for anything that wants pure model-inference time, but the
+        # GUI and the (interface-matching) evaluator both use wall-clock instead.
+        # None if the last result came from Simulation.
         self.last_groq_total_time = None
 
         # Log active credentials
@@ -138,7 +138,6 @@ class ReceiptParser:
         Call Groq, retrying on HTTP 429 with exponential backoff. Without this,
         a burst of receipts trips Groq's free-tier rate limit and (in the app)
         every subsequent call falls through to the simulated FamilyMart receipt.
-        The backoff sleeps here are deliberately NOT counted in last_groq_total_time.
         """
         for attempt in range(max_retries):
             try:
@@ -190,11 +189,9 @@ class ReceiptParser:
         if response.status_code == 200:
             result = response.json()
 
-            # Capture Groq's own server-side processing time (seconds). This is
-            # queue + prompt + completion time as measured on Groq's side, with
-            # no client network latency or retry-backoff included. Used by the
-            # evaluator for honest timing. Swap to prompt_time + completion_time
-            # if you want to exclude queue time as well.
+            # Capture Groq's own server-side processing time (seconds), available
+            # for callers that want pure inference time. The GUI and the
+            # interface-matching evaluator use wall-clock instead.
             usage = result.get("usage", {}) or {}
             self.last_groq_total_time = usage.get("total_time")
 

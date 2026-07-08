@@ -52,7 +52,7 @@
   "IMG_6675.HEIC": {
     "items": [
       {
-        "category": "Snack",
+        "category": "Groceries",
         "english_name": "Hand rolled rice ball",
         "japanese_name": "手巻おにぎり 焼鮭",
         "price": 128
@@ -134,7 +134,7 @@
         "price": 248
       },
       {
-        "category": "Other",
+        "category": "Daily Essentials",
         "english_name": "shopping bag",
         "japanese_name": "バイハン30レジ 袋大1枚",
         "price": 4
@@ -287,7 +287,7 @@
         "price": 118
       },
       {
-        "category": "Other",
+        "category": "Daily Essentials",
         "english_name": "Plastic bag",
         "japanese_name": "バイオ30レジ袋中1枚",
         "price": 3
@@ -438,5 +438,442 @@
     "store_name": "Seven-Eleven Keio University Yokohama Campus Store",
     "tax_amount": 19,
     "total_amount": 267
+  },
+  "IMG_6680.HEIC": { 
+    "items": [
+      {
+        "category": "Daily Essentials",
+        "english_name": "Semi-transparent trash bags",
+        "japanese_name": "ゴミ袋(半透明、22枚)",
+        "price": 100
+      },
+      {
+        "category": "Personal Care",
+        "english_name": "Face mask",
+        "japanese_name": "かっさ(フェイス用)",
+        "price": 100
+      },
+      {
+        "category": "Personal Care",
+        "english_name": "Cushion hair brush",
+        "japanese_name": "クッションヘアブラシ",
+        "price": 100
+      },
+      {
+        "category": "Personal Care",
+        "english_name": "Hand soap",
+        "japanese_name": "薬用ハンドソープ 本体",
+        "price": 100
+      }
+    ],
+    "store_name": "Daiso",
+    "tax_amount": 40,
+    "total_amount": 440
+  },
+  "IMG_6681.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "Ham and Cheese Sandwich",
+        "japanese_name": "生ハムとチーズのサンド",
+        "price": 970
+      }
+    ],
+    "store_name": "Cafe 大陸横断飛行",
+    "tax_amount": 88,
+    "total_amount": 970
+  },
+  "IMG_6682.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "Chicken Cutlet Curry",
+        "japanese_name": "チキンカツカレー",
+        "price": 994
+      },
+      {
+        "category": "Dining Out",
+        "english_name": "Mild Pork Curry Set with Coca-Cola",
+        "japanese_name": "甘口ポークカレーセット)コカ・コーラ",
+        "price": 170
+      }
+    ],
+    "store_name": "CoCo壱番屋 Curry House CoCo",
+    "tax_amount": 105,
+    "total_amount": 1164
+  },
+  "IMG_6683.HEIC": {
+    "items": [
+      {
+        "category": "Snack",
+        "english_name": "T-shaped Croissant",
+        "japanese_name": "Tクロワッサン",
+        "price": 388
+      }
+    ],
+    "store_name": "Paul",
+    "tax_amount": 28,
+    "total_amount": 388
+  },
+  "IMG_6684.HEIC": {
+    "items": [
+      {
+        "category": "Souvenirs",
+        "english_name": "Forward-looking Bean Dog",
+        "japanese_name": "まえむき藤の豆しば犬",
+        "price": 850
+      },
+      {
+        "category": "Snack",
+        "english_name": "Wisteria Honey Drops",
+        "japanese_name": "藤のはちみつ瓶ドロップス",
+        "price": 400
+      }
+    ],
+    "store_name": "Ashikaga Flower Park",
+    "tax_amount": 92,
+    "total_amount": 1250
+  },
+  "IMG_6685.HEIC": {
+    "items": [
+      {
+        "category": "Stationery",
+        "english_name": "My Neighbor Totoro Charcoal Notebook/Colorful Leaf Pattern",
+        "japanese_name": "となりのトトロ 炭帳/カラフルリーフ柄",
+        "price": 495
+      }
+    ],
+    "store_name": "Ghibli's Grand Warehouse Shop",
+    "tax_amount": 45,
+    "total_amount": 495
+  },
+  "IMG_6686.HEIC": {
+    "items": [
+      {
+        "category": "Clothes",
+        "english_name": "PUMA Shoes",
+        "japanese_name": "",
+        "price": 5489
+      },
+      {
+        "category": "Clothes",
+        "english_name": "PUMA Shoes",
+        "japanese_name": "",
+        "price": 3289
+      }
+    ],
+    "store_name": "ABC-Mart",
+    "tax_amount": 798,
+    "total_amount": 8778
+  },
+  "IMG_6687.HEIC": {
+    "items": [
+      {
+        "category": "Groceries",
+        "english_name": "Japanese-style Tuna Mayo Rice Ball",
+        "japanese_name": "和風シーチキンマヨおにぎり",
+        "price": 184
+      },
+      {
+        "category": "Snack",
+        "english_name": "UC Short Cake Set (2 pieces)",
+        "japanese_name": "UC ケーキセット ショート2個",
+        "price": 599
+      }
+    ],
+    "store_name": "Lawson Honmachi Ekimae Store",
+    "tax_amount": 58,
+    "total_amount": 783
+  },
+  "IMG_6688.HEIC": {
+    "items": [
+      {
+        "category": "Drink",
+        "english_name": "Asahi Mitsuya Cider -1.5L",
+        "japanese_name": "アサヒ 三ツ矢サイダー -1.5L",
+        "price": 170
+      },
+      {
+        "category": "Groceries",
+        "english_name": "Fujimoto Rice Delica Hand-Rolled Triangular Omusubi",
+        "japanese_name": "藤本ライスデリカ手巻三角オムスビ",
+        "price": 149
+      }
+    ],
+    "store_name": "SEIMS Drugstore",
+    "tax_amount": 18,
+    "total_amount": 248
+  },
+  "IMG_6689.HEIC": {
+    "items": [
+      {
+        "category": "Souvenirs",
+        "english_name": "Star-shaped keychain",
+        "japanese_name": "",
+        "price": 18
+      },
+      {
+        "category": "Clothes",
+        "english_name": "T-shirt or clothing item",
+        "japanese_name": "m of & CN", 
+        "price": 1400
+      },
+      {
+        "category": "Stationery",
+        "english_name": "Mini notebook",
+        "japanese_name": "",
+        "price": 150
+      }
+    ],
+    "store_name": "Kiddy Land",
+    "tax_amount": 156,
+    "total_amount": 1724
+  },
+  "IMG_6690.HEIC": {
+    "items": [
+      {
+        "category": "Stationery",
+        "english_name": "mofusand Vol.2 Bookmark Collection",
+        "japanese_name": "ブックマークコレクシ ヨン mofusand Vol.2",
+        "price": 110
+      }
+    ],
+    "store_name": "Bandai Namco Cross Store",
+    "tax_amount": 10,
+    "total_amount": 110
+  },
+  "IMG_6691.HEIC": {
+    "items": [
+      {
+        "category": "Souvenirs",
+        "english_name": "FM Acrylic Flower Stick Sunshine City Alba Store Limited Edition 2nd",
+        "japanese_name": "FMアクリルフラワースティック サンシャインシティアルバ店限定第2弾",
+        "price": 850
+      },
+      {
+        "category": "Stationery",
+        "english_name": "263 Miffy Card Adhesive Pink",
+        "japanese_name": "263ミッフィー カード フセン ピンク",
+        "price": 480
+      },
+      {
+        "category": "Stationery",
+        "english_name": "Color Poli S",
+        "japanese_name": "カラーボリS",
+        "price": 11
+      }
+    ],
+    "store_name": "Flower Miffy",
+    "tax_amount": 134,
+    "total_amount": 1475
+  },
+  "IMG_6692.HEIC": {
+    "items": [
+      {
+        "category": "Souvenirs",
+        "english_name": "Roronoa Zoro (ONE PIECE character)",
+        "japanese_name": "ﾙﾌｨ",
+        "price": 495
+      },
+      {
+        "category": "Daily Essentials",
+        "english_name": "Vinyl Bag", 
+        "japanese_name": "ﾋﾞﾆｰﾙ袋",
+        "price": 5
+      }
+    ],
+    "store_name": "ONE PIECE MUGIWARA STORE",
+    "tax_amount": 45,
+    "total_amount": 500
+  },
+  "IMG_6693.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "Classic set meal",
+        "japanese_name": "Classic set",
+        "price": 1800
+      }
+    ],
+    "store_name": "Dragon Burger",
+    "tax_amount": 163,
+    "total_amount": 1800
+  },
+  "IMG_6694.HEIC": {
+    "items": [
+      {
+        "category": "Drink",
+        "english_name": "Strawberry Float",
+        "japanese_name": "いちごフロート",
+        "price": 650
+      }
+    ],
+    "store_name": "Kiyomizu Tofuso",
+    "tax_amount": 52,
+    "total_amount": 650
+  },
+  "IMG_6695.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "2-piece set meal with 2 fried shrimp",
+        "japanese_name": "子) 2コ＆エビフライ2本定食",
+        "price": 1044
+      },
+      {
+        "category": "Dining Out",
+        "english_name": "Kid's lunch with fried oysters",
+        "japanese_name": "子) お子様ランチ・カキフライ",
+        "price": 1484
+      }
+    ],
+    "store_name": "Cafe Restaurant Gusto, ガスト",
+    "tax_amount": 230,
+    "total_amount": 2528
+  },
+  "IMG_6696.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "Asahi Yakitori",
+        "japanese_name": "麻布あさひ 焼鳥",
+        "price": 183
+      }
+    ],
+    "store_name": "TOKYU Foodshow HIYOSHI",
+    "tax_amount": 14,
+    "total_amount": 197
+  },
+  "IMG_6697.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "Black Cat Waffle Chocolate Parfait",
+        "japanese_name": "黒猫ワッフル チョコレートパフェ",
+        "price": 1078
+      },
+      {
+        "category": "Drink",
+        "english_name": "Wheat Juice",
+        "japanese_name": "小麦汁",
+        "price": 935
+      }
+    ],
+    "store_name": "Cats Cafe",
+    "tax_amount": 183,
+    "total_amount": 2013
+  },
+  "IMG_6698.HEIC": {
+    "items": [
+      {
+        "category": "Stationery",
+        "english_name": "Deep nori pit try CN tsume force",
+        "japanese_name": "ディープノリピットトライCN ツメ力",
+        "price": 220
+      }
+    ],
+    "store_name": "K's paperie",
+    "tax_amount": 22,
+    "total_amount": 242
+  },
+  "IMG_6699.HEIC": {
+    "items": [
+      {
+        "category": "Personal Care",
+        "english_name": "Sun Cut R Perfect Special",
+        "japanese_name": "サンカットRパーフェク 特",
+        "price": 698
+      }
+    ],
+    "store_name": "Welcia",
+    "tax_amount": 69,
+    "total_amount": 767
+  },
+  "IMG_6700.HEIC": {
+    "items": [
+      {
+        "category": "Snack",
+        "english_name": "Arashiyama Castella Cake Head 4 pieces (Chocolate)",
+        "japanese_name": "MSK嵐山 カステラ焼頭 4個入(チョコ)",
+        "price": 1318
+      },
+      {
+        "category": "Souvenirs",
+        "english_name": "KWB MF Cherry Blossom Postcard 2OLP",
+        "japanese_name": "KWB MFさくらオールハガキ 2OLP",
+        "price": 660
+      },
+      {
+        "category": "Daily Essentials",
+        "english_name": "MSCM Eco Bag Cherry Blossom", 
+        "japanese_name": "MSCM エコバッグ 桜ふわり",
+        "price": 550
+      },
+      {
+        "category": "Souvenirs",
+        "english_name": "SPJ MF Keychain Powder Pink",
+        "japanese_name": "SPJ MFキーチェーン パウダーピンク",
+        "price": 770
+      },
+      {
+        "category": "Souvenirs",
+        "english_name": "SPJ MF Keychain Blue",
+        "japanese_name": "SPJ MF キーチェーン ブルー",
+        "price": 770
+      },
+      {
+        "category": "Stationery",
+        "english_name": "MSK Masking Tape Cherry Blossom Viewing",
+        "japanese_name": "MSK マスキングテープ 桜花見",
+        "price": 495
+      },
+      {
+        "category": "Stationery",
+        "english_name": "MFB Masking Tape Brown",
+        "japanese_name": "MFB マスキングテープ BRW",
+        "price": 495
+      },
+      {
+        "category": "Daily Essentials",
+        "english_name": "MFK Vinyl Handbag Medium", 
+        "japanese_name": "MFK ビニール手提げ袋(中)",
+        "price": 10
+      }
+    ],
+    "store_name": "Arashiyama Miffy Sakura Kitchen",
+    "tax_amount": 439,
+    "total_amount": 5068
+  },
+  "IMG_6701.HEIC": {
+    "items": [
+      {
+        "category": "Snack",
+        "english_name": "Pudding",
+        "japanese_name": "乙女ぷりん",
+        "price": 520
+      }
+    ],
+    "store_name": "Nikko Purin-tei",
+    "tax_amount": 38,
+    "total_amount": 520
+  },
+  "IMG_6702.HEIC": {
+    "items": [
+      {
+        "category": "Dining Out",
+        "english_name": "Alpaca Ruka-chan Set",
+        "japanese_name": "アルパカ ルカちゃんセット",
+        "price": 980
+      },
+      {
+        "category": "Drink",
+        "english_name": "Peach Soda",
+        "japanese_name": "ピーチソーダ",
+        "price": 200
+      }
+    ],
+    "store_name": "Crêpes de Anne  クレープス ド アンヌ",
+    "tax_amount": 107,
+    "total_amount": 1180
   }
 }

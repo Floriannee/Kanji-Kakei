@@ -8,16 +8,18 @@ reports accuracy across three axes:
                                 printed on the receipt? (store name, total,
                                 tax, each item's Japanese name and price)
   2. Categorization accuracy - did the model assign the correct category
-                                (Food, Drink, Household, ...) to each item?
+                                (Groceries, Drink, Dining Out, ...) to each item?
   3. Time accuracy           - what fraction of receipts were parsed within
                                 the time budget (default 3.0s), plus raw
                                 timing stats (avg/median/min/max).
 
-Timing note: the reported time is Groq's OWN server-side processing time
-(from the API response's `usage.total_time`), NOT wall-clock. This excludes
-your network round-trip and any client-side rate-limit (429) backoff waits,
-so "time when Groq is ready and working" is what's measured. If a receipt is
-served by offline Simulation Mode (no Groq call), it falls back to wall-clock.
+Timing note: this measures the SAME thing the desktop app's stopwatch does.
+In main.py the app records time.time() right after deskewing (at the start of
+the scan) and again when the result returns, i.e. plain wall-clock around
+parse_receipt_image() including network round-trip, Groq queue, and inference.
+This evaluator mirrors that exactly: deskew/crop happen OUTSIDE the timer, and
+wall-clock is measured around the parse call. It deliberately does NOT use
+Groq's server-side usage.total_time, so the numbers match what a user sees.
 
 Ground truth format: see evaluation/ground_truth.json (or run
 evaluation/generate_template.py to scaffold one from your image folder).
@@ -178,7 +180,7 @@ def score_image(predicted: dict, expected: dict):
     }
 
 
-def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
+def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir, delay=2.5):
     with open(ground_truth_path, "r", encoding="utf-8") as f:
         ground_truth = json.load(f)
 
@@ -206,31 +208,38 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
     per_image_results = []
     parse_times = []
 
-    for filename in evaluated_files:
+    for idx, filename in enumerate(evaluated_files):
+        # Pace requests like a human using the app: pause BETWEEN receipts so a
+        # tight loop doesn't trip Groq's per-minute rate limit. Once tripped,
+        # Groq throttles/queues later requests server-side, which is exactly why
+        # the first ~7 receipts are fast (~2s) and the rest balloon to 7-9s.
+        # This sleep is outside the timing block, so it never affects parse_time.
+        if idx > 0 and delay > 0:
+            time.sleep(delay)
+
         image_path = os.path.join(images_dir, filename)
         expected = ground_truth[filename]
         print(f"Processing {filename} ...")
 
         try:
+            # Deskew/crop happen OUTSIDE the timer, exactly like the app:
+            # main.py preprocesses first, then starts its stopwatch.
             cv_img = deskew_and_crop(image_path)
             pil_img = opencv_to_pil(cv_img)
 
-            # Wall-clock is only a fallback for Simulation Mode. The real number
-            # we want is Groq's own server-side processing time, which excludes
-            # our network latency and any 429 retry-backoff sleeps.
-            start = time.perf_counter()
+            # Wall-clock around the parse call, matching the app's stopwatch
+            # (time.time() at scan start -> time.time() when the result returns).
+            # Includes network round-trip, Groq queue, and inference -- i.e.
+            # the real latency a user of the interface experiences.
+            start = time.time()
             predicted = parser.parse_receipt_image(pil_img)
-            wall_elapsed = time.perf_counter() - start
-
-            groq_time = getattr(parser, "last_groq_total_time", None)
-            elapsed = groq_time if groq_time is not None else wall_elapsed
+            elapsed = time.time() - start
             parse_times.append(elapsed)
 
             scores = score_image(predicted, expected)
             scores.update({
                 "image": filename,
                 "parse_time_sec": round(elapsed, 3),
-                "time_source": "groq" if groq_time is not None else "wall_clock",
                 "time_ok": elapsed <= time_threshold,
                 "error": "",
             })
@@ -242,7 +251,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
                 "text_correct": 0, "text_total": 0,
                 "cat_correct": 0, "cat_total": 0,
                 "extra_items": 0,
-                "parse_time_sec": None, "time_source": None, "time_ok": False,
+                "parse_time_sec": None, "time_ok": False,
                 "mismatches": [], "error": str(e),
             })
             print(f"    [ERROR] {e}")
@@ -267,7 +276,8 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
         "num_images_skipped_no_gt": len(skipped),
         "num_failures": num_failures,
         "time_threshold_sec": time_threshold,
-        "time_source": "groq_server_side_total_time (fallback: wall_clock for simulation)",
+        "time_source": "wall_clock (matches app stopwatch: network + queue + inference)",
+        "inter_receipt_delay_sec": delay,
         "text_reading_accuracy_pct": round(text_accuracy, 2),
         "categorization_accuracy_pct": round(cat_accuracy, 2),
         "time_accuracy_pct": round(time_accuracy, 2),
@@ -294,7 +304,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
     if parse_times:
         print(f"Avg / median / min / max time: {summary['avg_time_sec']}s / "
               f"{summary['median_time_sec']}s / {summary['min_time_sec']}s / {summary['max_time_sec']}s")
-    print("  (times = Groq server-side processing, excluding network + retry waits)")
+    print("  (wall-clock, same as the app stopwatch: network + queue + inference)")
     print("=" * 60 + "\n")
 
     # ---------------- Save report files ----------------
@@ -307,7 +317,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
         writer.writerow([
             "image", "text_correct", "text_total", "text_accuracy_pct",
             "cat_correct", "cat_total", "cat_accuracy_pct",
-            "extra_items", "parse_time_sec", "time_source", "time_ok", "error",
+            "extra_items", "parse_time_sec", "time_ok", "error",
         ])
         for r in per_image_results:
             text_pct = round(r["text_correct"] / r["text_total"] * 100, 1) if r["text_total"] else ""
@@ -315,7 +325,7 @@ def run_evaluation(images_dir, ground_truth_path, time_threshold, output_dir):
             writer.writerow([
                 r["image"], r["text_correct"], r["text_total"], text_pct,
                 r["cat_correct"], r["cat_total"], cat_pct,
-                r["extra_items"], r["parse_time_sec"], r.get("time_source"), r["time_ok"], r["error"],
+                r["extra_items"], r["parse_time_sec"], r["time_ok"], r["error"],
             ])
 
     details_path = os.path.join(output_dir, f"evaluation_details_{timestamp}.json")
@@ -343,9 +353,17 @@ def main():
         help="Seconds a parse must finish within to count as 'on time' (default: 3.0)",
     )
     parser.add_argument("--output-dir", default="outputs", help="Where to write report files (default: outputs/)")
+    parser.add_argument(
+        "--delay", type=float, default=5,
+        help="Seconds to pause BETWEEN receipts so a fast back-to-back loop doesn't "
+             "trip Groq's per-minute rate limit (which throttles later requests and "
+             "inflates their time). The pause is OUTSIDE the timer, so it never counts "
+             "toward measured parse times. Set 0 to disable. Default: 2.5",
+    )
     args = parser.parse_args()
 
-    run_evaluation(args.images_dir, args.ground_truth, args.time_threshold, args.output_dir)
+    run_evaluation(args.images_dir, args.ground_truth, args.time_threshold,
+                   args.output_dir, delay=args.delay)
 
 
 if __name__ == "__main__":
