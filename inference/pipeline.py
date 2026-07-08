@@ -25,7 +25,7 @@ CRITICAL:
 2. Do NOT extract tax breakdowns, tax totals, subtotals, or point balances as individual items in the "items" list. However, if the receipt explicitly lists the cash received (e.g. "お預かり", "お預り", "Received", "Cash", "現計") or the change returned (e.g. "お釣り", "お釣", "Change", "Return"), you MUST extract them as items in the "items" list (with category "Change"). For example, lines like "8%対象", "10%対象", "消費税", "内消費税", "非課税" must NEVER be listed as items in the "items" list.
 3. Extract the total tax amount (sum of all taxes, or the value next to "消費税", "内消費税", or "税") and put it in the root-level "tax_amount" field.
 4. Ensure each physical product is only listed ONCE in the "items" list. Do NOT list the same product more than once unless multiple separate units were actually purchased. If the receipt repeats product names or prices in tax calculation sections, do NOT duplicate them.
-5. The "category" field must be exactly one of: Groceries, Drink, Snack, Dining Out, Daily Essentials, Clothes, Personal Care, Stationery, Leisure, Souvenirs, Tax, Other. Sweet baked goods/breads (such as Melon Pan, Anpan, pastries, donuts), ice cream, chips, candy, chocolates, and onigiri / rice balls must always be categorized as Snack.
+5. The "category" field must be exactly one of: Groceries, Drink, Snack, Dining Out, Daily Essentials, Clothes, Personal Care, Stationery, Leisure, Souvenirs, Tax, Other. Sweet baked goods/breads (such as Melon Pan, Anpan, pastries, donuts), ice cream, chips, candy, chocolates, and onigiri / rice balls must always be categorized as Snack. Ready-to-eat meals, bento boxes (お弁当), hot counter items, preheated foods, and microwavable convenience meals (such as gratin, pasta, ramen, udon, curry rice bowls, doria) must always be categorized as Dining Out.
 6. Extract the transaction date and time printed on the receipt and format it as a root-level "date" field in "YYYY-MM-DD HH:MM:SS" format (if no time is found on the receipt, default to "HH:MM:00"; if no date is found at all, omit this field or return null).
 7. The "english_name" field MUST contain ONLY the clean English translation or name of the product. Do NOT append guesses, descriptions, or commentary (such as "(likely a beer)" or "(probably a combo)") to the "english_name" field. Any such contextual explanations must be placed strictly in the "note" field.
 8. The "savings_advice" field MUST be a highly specific, practical, and actionable money-saving tip in English, directly related to the specific store or items purchased on this receipt (e.g. suggesting store discount hours, loyalty point apps, or cheaper local supermarket alternatives for these products). Never give generic transportation card (Suica/Pasmo) advice.
@@ -104,12 +104,16 @@ class ReceiptParser:
             logger.info("[Pipeline]  Success via Simulation")
 
         # Post-process response to ensure onigiri / rice balls are categorized as Snack
+        # and ready meals / preheated items are categorized as Dining Out
         if response and "items" in response:
             for item in response["items"]:
                 eng_name = item.get("english_name", "").lower()
                 jp_name = item.get("japanese_name", "").lower()
                 if "rice ball" in eng_name or "onigiri" in eng_name or "おにぎり" in jp_name or "おむすび" in jp_name:
                     item["category"] = "Snack"
+                elif any(word in eng_name for word in ["bento", "gratin", "doria", "pasta", "spaghetti", "udon", "ramen", "soba", "donburi", "rice bowl", "ready meal"]) or \
+                     any(word in jp_name for word in ["弁当", "グラタン", "ドリア", "パスタ", "スパゲティ", "うどん", "ラーメン", "そば", "丼"]):
+                    item["category"] = "Dining Out"
 
         # Post-process response to ensure cup noodle museum has both items
         if response and response.get("store_name") == "Cup Noodle Museum" and "items" in response:
