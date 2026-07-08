@@ -894,7 +894,7 @@ def generate_html_dashboard() -> bool:
                         </div>
                     </div>
 
-                    <button onclick="deleteTransaction('{last_receipt_date}', '{last_receipt_store}', '{last_receipt_image_path_escaped}')" class="btn" style="background-color: #e74c3c; color: white; width: 100%; margin-top: 25px; font-weight: bold; padding: 12px; font-size: 0.95rem; border-radius: 8px; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.2);">Delete This Receipt</button>
+
                 </main>
 
                 <main id="recap" class="tab-content">
@@ -943,7 +943,6 @@ def generate_html_dashboard() -> bool:
                                         <th>Date</th>
                                         <th>Store</th>
                                         <th>Total Price</th>
-                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="transaction-history-body">
@@ -1403,9 +1402,6 @@ def generate_html_dashboard() -> bool:
                                 <td><strong>${{date}}</strong></td>
                                 <td>${{store}}${{imgName ? ` <br><small style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">(${{imgName}})</small>` : ''}}</td>
                                 <td><strong>${{formatPrice(totalVal)}}</strong></td>
-                                <td>
-                                    <button onclick="event.stopPropagation(); deleteTransaction('${{date}}', '${{store}}', '${{imgPath.replace(/\\\\/g, '/')}}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s;">Delete</button>
-                                </td>
                             </tr>
                             `;
                         }});
