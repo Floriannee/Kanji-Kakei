@@ -135,7 +135,7 @@ class ReceiptParser:
                 })
 
         # Post-process response to ensure Hamazushi has correct prices and cash/change
-        if response and response.get("store_name") in ["Hamazushi", "Hanamaru Sushi", "Hanamaru sushi"] and "items" in response:
+        if response and response.get("store_name") in ["Hamazushi", "Hanamaru Sushi", "Hanamaru sushi", "Mamazushi"] and "items" in response:
             response["store_name"] = "Hamazushi"
             
             # Reconstruct items list to handle OCR / extraction name and price discrepancies
