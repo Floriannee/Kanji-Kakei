@@ -871,7 +871,10 @@ def generate_html_dashboard() -> bool:
                         
                         <div class="grid-col-right">
                             <div class="card">
-                                <div class="card-title">Latest Receipt Metadata</div>
+                                 <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                                     <span>Latest Receipt Metadata</span>
+                                     <button class="btn btn-muted" id="btn-delete-receipt" style="background-color: #e74c3c; color: white; padding: 6px 12px; font-size: 0.85rem; font-weight: 600;">Delete Receipt</button>
+                                 </div>
                                 <div class="receipt-summary">
                                     <div class="meta-item"><span class="label">Store Location</span><span class="value">{last_receipt_store}</span></div>
                                     <div class="meta-item"><span class="label">Transaction Date</span><span class="value">{last_receipt_date}</span></div>
@@ -967,6 +970,7 @@ def generate_html_dashboard() -> bool:
             </div>
 
             <script>
+                const apiBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
                 const currencies = {{
                     JPY: {{ symbol: '¥', rate: 1.0, precision: 0 }},
                     EUR: {{ symbol: '€', rate: 1 / 183, precision: 2 }},
@@ -1132,7 +1136,7 @@ def generate_html_dashboard() -> bool:
                     }}, 100);
                     
                     const uploadPayload = (payload) => {{
-                        fetch('/api/upload', {{
+                        fetch(apiBase + '/api/upload', {{
                             method: 'POST',
                             headers: {{
                                 'Content-Type': 'application/json'
@@ -1413,7 +1417,7 @@ def generate_html_dashboard() -> bool:
                         return;
                     }}
                     
-                    fetch('/api/delete', {{
+                    fetch(apiBase + '/api/delete', {{
                         method: 'POST',
                         headers: {{
                             'Content-Type': 'application/json'
@@ -1442,7 +1446,7 @@ def generate_html_dashboard() -> bool:
                         return;
                     }}
                     
-                    fetch('/api/delete_item', {{
+                    fetch(apiBase + '/api/delete_item', {{
                         method: 'POST',
                         headers: {{
                             'Content-Type': 'application/json'
@@ -1640,14 +1644,27 @@ def generate_html_dashboard() -> bool:
                         `;
                     }}
                     
-                    const deleteBtn = document.querySelector('#analysis > button');
+                    const deleteBtn = document.getElementById('btn-delete-receipt');
                     if (deleteBtn) {{
-                        deleteBtn.setAttribute('onclick', `deleteTransaction('${{date}}', '${{storeName}}', '${{imagePath.replace(/\\\\/g, '/')}}')`);
+                        deleteBtn.onclick = () => deleteTransaction(date, storeName, imagePath);
                     }}
                 }}
 
                 // Init load
                 updateRecap();
+
+                // Set initial click handler for the delete button of the most recent receipt
+                if (allRecords.length > 0) {{
+                    const lastRec = allRecords[allRecords.length - 1];
+                    const deleteBtn = document.getElementById('btn-delete-receipt');
+                    if (deleteBtn) {{
+                        deleteBtn.onclick = () => deleteTransaction(
+                            lastRec.date, 
+                            lastRec.store_name, 
+                            lastRec.image_path
+                        );
+                    }}
+                }}
 
                 const latestTotalEl = document.getElementById('latest-total-amount');
                 if (latestTotalEl) {{
@@ -2084,6 +2101,16 @@ server_running = False
 class DashboardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=os.getcwd(), **kwargs)
+
+    def end_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
 
     def do_GET(self):
         if self.path == '/' or self.path == '/index.html':
