@@ -1,0 +1,13 @@
+Receipt ID: 57, Store: Hamazushi, Total: 1617, Date: 2018-04-03 20:36:00
+  Item: ('平日寿司90円', 'Weekday Sushi (90 yen)', 97, 15, 'Dining Out')
+  Item: ('寿司150円', 'Sushi (150 yen)', 162, 1, 'Dining Out')
+  Item: ('お預かり', 'Received', 2022, 1, 'Change')
+  Item: ('お釣り', 'Change', 405, 1, 'Change')
+Receipt ID: 55, Store: Hamazushi, Total: 1617, Date: 2018-04-03 20:36:00
+  Item: ('平日寿司90円', 'Weekday Sushi (90 yen)', 97, 15, 'Dining Out')
+  Item: ('寿司150円', 'Sushi (150 yen)', 162, 1, 'Dining Out')
+  Item: ('お預かり', 'Received', 2022, 1, 'Change')
+  Item: ('お釣り', 'Change', 405, 1, 'Change')
+Receipt ID: 53, Store: Hamazushi, Total: 1617, Date: 2018-04-03 20:36:00
+  Item: ('平日寿司90円', 'Weekday Sushi (90 yen)', 97, 15, 'Dining Out')
+  Item: ('寿司150円', 'Sushi (150 yen)', 162, 1, 'Dining Out')

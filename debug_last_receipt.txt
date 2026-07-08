@@ -1,0 +1,9 @@
+Last record in CSV: {'id': 'a9bb1f721c0d4da6a29bc39c4fd45d97', 'date': '2020-01-22 07:23:00', 'store_name': 'Lawson', 'japanese_name': 'LWカオルバ ターノサックリメンパン', 'english_name': 'Low-Carb Turnovers Cream Pan', 'category': 'Snack', 'price': '116', 'quantity': '1', 'note': 'Low-carb cream pan, a sweet bread option, around ¥116', 'receipt_total': '606', 'tax_amount': '44', 'tax_type': 'included', 'savings_advice': 'Consider buying a Lawson point card to earn rewards and discounts on future purchases.', 'image_path': 'receipts\\test_1783487572.jpg'}
+Target image: receipts\test_1783487572.jpg
+Checking item: jp_name=machiコーヒー(s), eng_name=machi coffee, category=drink, price=100
+Checking item: jp_name=手巻 ソーセージマヨネーズ, eng_name=hand roll sausage mayo, category=snack, price=120
+Checking item: jp_name=手巻おにぎり 日高昆布, eng_name=hand roll onigiri hidakakohbu, category=snack, price=120
+Checking item: jp_name=手巻 焼鮭ほぐし, eng_name=hand roll grilled salmon flake, category=snack, price=150
+Checking item: jp_name=lwカオルバ ターノサックリメンパン, eng_name=low-carb turnovers cream pan, category=snack, price=116
+Matches count: 5
+Final discount_amount: 0

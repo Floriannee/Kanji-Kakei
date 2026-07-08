@@ -1,0 +1,49 @@
+Receipt ID: 7, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('ノウコウチータテチーズビッツ', 'Noukouji Tatete Cheese Bits', 130, 1, 'Snack')
+  Item: ('コロチョコ!メロンパン', 'Colo Choco! Melon Pan', 192, 1, 'Snack')
+  Item: ('和風シーチキンマヨおにぎり', 'Japanese-Style Tuna Mayo Rice Ball', 184, 2, 'Snack')
+  Item: ('特製監修 濃厚チョコだらけ', 'Special Supervision Rich Chocolate', 279, 1, 'Snack')
+Receipt ID: 15, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('ノウコウチータテチーズビッツ', 'Newly Developed Tataked Cheese Bits', 130, 1, 'Snack')
+  Item: ('コロチョコ!メロンパン', 'Chocolate Melon Pan', 192, 1, 'Snack')
+  Item: ('和風シーチキンマヨおにぎり', 'Japanese-Style Tuna Mayo Rice Ball', 184, 2, 'Snack')
+  Item: ('濃厚監修激辛たらこ', 'Spicy Pollock Roe', 279, 1, 'Groceries')
+Receipt ID: 16, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('ノウコウチータノーチーズピット', 'Tanno Cheese Pit', 130, 1, 'Snack')
+  Item: ('コロチョコ!メロンパン', 'Chocolate Melon Pan', 192, 1, 'Snack')
+  Item: ('和風シーチキンマヨおにぎり 2個', 'Japanese-Style Tuna Mayo Rice Balls', 184, 2, 'Snack')
+  Item: ('特製監修 濃厚チーズにらこ', 'Special Supervised Rich Cheese and Mentaiko', 279, 1, 'Groceries')
+Receipt ID: 54, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('ノウコウチタノチーズビッツ', 'Noukouchi Cheese Bits', 130, 1, 'Snack')
+  Item: ('コロチョコ メロンパン', 'CoroChoco Melon Pan', 192, 1, 'Snack')
+  Item: ('和風シーチキンマヨおにぎり 2個', 'Japanese-Style Tuna Mayo Rice Balls', 184, 2, 'Snack')
+  Item: ('特製監修 濃厚チョコだらけ', 'Rich Chocolate Cake', 279, 1, 'Snack')
+Receipt ID: 56, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('ノウコウチタノチーズビッツ', 'Noukouchi Tano Cheese Bits', 130, 1, 'Snack')
+  Item: ('コロチョコ!メロンパン', 'Chocolate Melon Pan', 192, 1, 'Snack')
+  Item: ('和風チキンマヨおにぎり', 'Japanese-Style Chicken Mayo Rice Ball', 184, 2, 'Snack')
+  Item: ('特製監修 濃厚チョコ', 'Special Supervision Rich Chocolate', 279, 1, 'Snack')
+Receipt ID: 58, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('ノウコウチータノーチーズピット', 'New York Times Cheesy Pit', 130, 1, 'Snack')
+  Item: ('コロチョコ メロンパン', 'Chocolate Melon Pan', 192, 1, 'Snack')
+  Item: ('和風シーチキンマヨおにぎり 2個', 'Japanese-Style Tuna Mayo Rice Balls', 184, 2, 'Snack')
+  Item: ('特製監修 濃厚チョコだらけ', 'Rich Chocolate Cake', 279, 1, 'Snack')
+Receipt ID: 65, Store: Lawson, Total: 969, Date: 2026-05-23 18:16:00
+  Item: ('LW ノウコウシタテノチーズビッツ', 'Lawson New York Style Cheese Bits', 130, 1, 'Snack')
+  Item: ('LW ゴロチョコ! メロンパン', 'Lawson Golochoco! Melon Pan', 192, 1, 'Snack')
+  Item: ('和風シーチキンマヨおにぎり', 'Japanese-Style Tuna Mayo Rice Ball', 184, 2, 'Snack')
+  Item: ('宿六監修濃厚炊き込みたらこ', 'Yadoroku Supervised Rich Tarako', 279, 1, 'Groceries')
+Receipt ID: 72, Store: Lawson, Total: 458, Date: 2017-08-01 22:46:00
+  Item: ('LS マンダリンオレンジ', 'Mandarin Orange', 160, 1, 'Drink')
+  Item: ('手巻 玉子かけ風ご飯', 'Hand Rolled Omelette Rice', 120, 1, 'Snack')
+  Item: ('NLグリーンスムージー -200g', 'Green Smoothie', 178, 1, 'Drink')
+Receipt ID: 73, Store: Lawson, Total: 458, Date: 2017-08-01 22:46:00
+  Item: ('LS マンダリンオレンジ', 'Mandarin Orange', 160, 1, 'Drink')
+  Item: ('手巻 玉子かけ風ご飯', 'Hand Rolled Omelette Rice Ball', 120, 1, 'Snack')
+  Item: ('NLグリーン スムージー -200g', 'Green Smoothie', 178, 1, 'Drink')
+Receipt ID: 79, Store: Lawson, Total: 606, Date: 2020-01-22 07:23:00
+  Item: ('MACHIコーヒー(S)', 'Machi Coffee', 100, 1, 'Drink')
+  Item: ('手巻 ソーチキンマヨネーズ', 'Hand Roll Chicken Mayo', 120, 1, 'Snack')
+  Item: ('手巻おにぎり 日高昆布', 'Hand Rolled Onigiri Hidakakohb', 120, 1, 'Snack')
+  Item: ('手巻 焼鮭ほぐし', 'Hand Roll Grilled Salmon Flake', 150, 1, 'Snack')
+  Item: ('LWカオルバ ターノサックリメンパン', 'Low-calorie Carb-reduced Melon Pan', 116, 1, 'Snack')

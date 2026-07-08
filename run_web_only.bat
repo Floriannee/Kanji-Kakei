@@ -1,9 +1,9 @@
 @echo off
 cd /d "%~dp0"
-title Kanji-Kakei Startup Launcher
+title Kanji-Kakei Web-Only Launcher
 echo =========================================================
-echo  Kanji-Kakei: Japanese Receipt Reader ^& AI Advisor
-echo  Starting Windows 11 Desktop Application...
+echo  Kanji-Kakei: Japanese Receipt Reader ^& AI Advisor (Headless)
+echo  Starting Web-Only Dashboard...
 echo =========================================================
 echo.
 
@@ -16,8 +16,8 @@ if not exist ".venv" (
 )
 
 :: Run application
-echo Launching GUI main loop...
-.venv\Scripts\python.exe main.py
+echo Launching headless server...
+.venv\Scripts\python.exe main.py --web-only
 if %errorlevel% neq 0 (
     echo.
     echo [WARNING] Application exited with error code %errorlevel%.
