@@ -469,8 +469,11 @@ def generate_html_dashboard() -> bool:
             last_receipt_image_path = ""
             last_savings_advice = "Upload your first receipt using the dropzone on the left to get started!"
             last_receipt_total = 0
+            last_receipt_subtotal = 0
             last_receipt_tax = 0
             last_receipt_tax_type = "included"
+            last_receipt_service_charge = 0
+            service_charge_style = "display: none;"
             receipt_items_html = """
             <tr>
                 <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">
@@ -496,11 +499,18 @@ def generate_html_dashboard() -> bool:
             image_card_style = "" if last_receipt_image_url else "display: none;"
             receipt_items_html = ""
             last_receipt_total = 0
+            last_receipt_subtotal = 0
+            last_receipt_service_charge = 0
+            service_charge_style = "display: none;"
 
             # Match and safely bundle all entry items belonging to the same transaction
             target_image = records[-1].get("image_path") or ""
             target_date = records[-1].get("date") or ""
             target_store = records[-1].get("store_name") or ""
+            
+            received_amount = 0
+            change_amount = 0
+            valid_item_rows = []
 
             for r in records:
                 is_match = False
@@ -510,51 +520,131 @@ def generate_html_dashboard() -> bool:
                     is_match = True
 
                 if is_match:
-                    price = float(safe_int(r.get("price")))
-                    qty = int(safe_int(r.get("quantity") or 1))
-                    if qty < 1:
-                        qty = 1
-                    last_receipt_total += price * qty
-                    badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
+                    eng_name = (r.get("english_name") or "").lower()
+                    jp_name = (r.get("japanese_name") or "").lower()
+                    category = (r.get("category") or "").lower()
+                    
+                    # Detect cash received lines
+                    if "received" in eng_name or "cash" in eng_name or "お預" in jp_name or "預り" in jp_name or "預かり" in jp_name:
+                        received_amount = float(safe_int(r.get("price")))
+                        continue
+                        
+                    # Detect change lines
+                    if "change" in eng_name or "お釣" in jp_name or "お釣り" in jp_name or category == "change":
+                        change_amount = float(safe_int(r.get("price")))
+                        continue
+                        
+                    valid_item_rows.append(r)
 
-                    note_html = ""
-                    if r.get("note"):
-                        note_html = f"<br><small style='color: var(--text-muted); font-size: 0.85rem; font-style: italic;'>{r.get('note')}</small>"
+            for r in valid_item_rows:
+                price = float(safe_int(r.get("price")))
+                qty = int(safe_int(r.get("quantity") or 1))
+                if qty < 1:
+                    qty = 1
+                last_receipt_subtotal += price * qty
+                badge_class = (r.get("category") or "Other").lower().replace(" & ", "-").replace(" ", "-")
 
-                    escaped_store = r.get('store_name', '').replace("'", "\\'")
-                    escaped_jp = r.get('japanese_name', '').replace("'", "\\'")
-                    escaped_eng = r.get('english_name', '').replace("'", "\\'")
+                note_html = ""
+                if r.get("note"):
+                    note_html = f"<br><small style='color: var(--text-muted); font-size: 0.85rem; font-style: italic;'>{r.get('note')}</small>"
 
-                    is_change = "change" in r.get('english_name', '').lower() or "change" in r.get('japanese_name', '').lower() or r.get('category', '').lower() == 'change'
-                    if is_change:
-                        category_html = '<span class="badge badge-change">Change</span>'
-                    else:
-                        category_html = f'<span class="badge badge-{badge_class}">{r.get("category", "Other")}</span>'
+                escaped_store = r.get('store_name', '').replace("'", "\\'")
+                escaped_jp = r.get('japanese_name', '').replace("'", "\\'")
+                escaped_eng = r.get('english_name', '').replace("'", "\\'")
 
-                    qty = int(safe_int(r.get("quantity") or 1))
-                    if qty < 1:
-                        qty = 1
-                    receipt_items_html += f"""
-                    <tr>
-                        <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
-                        <td><strong>{r.get('english_name', '')}</strong>{note_html}</td>
-                        <td>{category_html}</td>
-                        <td class="item-price-cell" data-jpy="{price}"><strong>¥{price:,.0f}</strong></td>
-                        <td style="text-align: center; font-weight: 600; color: var(--primary);">{qty}</td>
-                        <td>
-                            <button onclick="deleteSingleItem('{r.get('date')}', '{escaped_store}', '{escaped_jp}', '{escaped_eng}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer;">Delete</button>
-                        </td>
-                    </tr>
-                    """
+                is_change = "change" in r.get('english_name', '').lower() or "change" in r.get('japanese_name', '').lower() or r.get('category', '').lower() == 'change'
+                if is_change:
+                    category_html = '<span class="badge badge-change">Change</span>'
+                else:
+                    category_html = f'<span class="badge badge-{badge_class}">{r.get("category", "Other")}</span>'
 
-            # Add Tax as a row at the bottom of the items table if it's set
+                qty = int(safe_int(r.get("quantity") or 1))
+                if qty < 1:
+                    qty = 1
+                receipt_items_html += f"""
+                <tr>
+                    <td><span class="jp-text">{r.get('japanese_name', '')}</span></td>
+                    <td><strong>{r.get('english_name', '')}</strong>{note_html}</td>
+                    <td>{category_html}</td>
+                    <td class="item-price-cell" data-jpy="{price}"><strong>¥{price:,.0f}</strong></td>
+                    <td style="text-align: center; font-weight: 600; color: var(--primary);">{qty}</td>
+                    <td class="item-price-cell" data-jpy="{price * qty}" style="font-weight: 600; color: var(--accent); text-align: right;"><strong>¥{price * qty:,.0f}</strong></td>
+                    <td>
+                        <button onclick="deleteSingleItem('{r.get('date')}', '{escaped_store}', '{escaped_jp}', '{escaped_eng}')" class="btn btn-muted" style="background-color: #e74c3c; color: white; padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer;">Delete</button>
+                    </td>
+                </tr>
+                """
+            # Compute total and service charge
+            raw_total_from_db = float(safe_int(records[-1].get("receipt_total") or 0))
+            if raw_total_from_db > 0:
+                last_receipt_total = raw_total_from_db
+            else:
+                last_receipt_total = last_receipt_subtotal + (last_receipt_tax if last_receipt_tax_type == "excluded" else 0)
+
+            # Auto-correct tax type if raw total matches subtotal + tax
+            if last_receipt_tax_type == "included" and last_receipt_tax > 0:
+                if abs(last_receipt_total - (last_receipt_subtotal + last_receipt_tax)) <= 3:
+                    last_receipt_tax_type = "excluded"
+                    logger.info("[TaxCorrection] Corrected tax type to excluded because total matches subtotal + tax.")
+
+            last_receipt_service_charge = max(0, last_receipt_total - last_receipt_subtotal - (last_receipt_tax if last_receipt_tax_type == "excluded" else 0))
+            service_charge_style = "" if last_receipt_service_charge > 0 else "display: none;"
+
+            # Append receipt totals summary rows at the bottom of the items table
+            receipt_items_html += f"""
+            <tr style="border-top: 2px solid var(--border); font-weight: bold;">
+                <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Subtotal (Pre-tax)</td>
+                <td></td>
+                <td class="item-price-cell" data-jpy="{last_receipt_subtotal}" style="text-align: right;"><strong>¥{last_receipt_subtotal:,.0f}</strong></td>
+                <td></td>
+            </tr>
+            """
+
             if last_receipt_tax > 0:
                 receipt_items_html += f"""
-                <tr style="background-color: var(--bg); font-weight: bold; border-top: 2px solid var(--border);">
-                    <td colspan="2" style="text-align: right; color: var(--text-muted); font-size: 0.95rem;">Tax ({last_receipt_tax_type.capitalize()})</td>
-                    <td><span class="badge badge-tax">Tax</span></td>
-                    <td class="item-price-cell" data-jpy="{last_receipt_tax}"><strong>¥{last_receipt_tax:,.0f}</strong></td>
+                <tr style="font-weight: bold;">
+                    <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Tax ({last_receipt_tax_type.capitalize()})</td>
+                    <td style="text-align: center;"><span class="badge badge-tax">Tax</span></td>
+                    <td class="item-price-cell" data-jpy="{last_receipt_tax}" style="text-align: right;"><strong>¥{last_receipt_tax:,.0f}</strong></td>
                     <td></td>
+                </tr>
+                """
+
+            if last_receipt_service_charge > 0:
+                receipt_items_html += f"""
+                <tr style="font-weight: bold;">
+                    <td colspan="4" style="text-align: right; color: var(--text-muted); font-size: 0.95rem; padding: 10px 12px;">Service Charge / Fees</td>
+                    <td style="text-align: center;"><span class="badge badge-other">Service</span></td>
+                    <td class="item-price-cell" data-jpy="{last_receipt_service_charge}" style="text-align: right;"><strong>¥{last_receipt_service_charge:,.0f}</strong></td>
+                    <td></td>
+                </tr>
+                """
+
+            receipt_items_html += f"""
+            <tr style="background-color: #f8fafc; font-weight: bold; border-top: 2px solid var(--primary); font-size: 1.05rem;">
+                <td colspan="4" style="text-align: right; color: var(--primary); padding: 12px 12px;">Total Paid (with Tax)</td>
+                <td></td>
+                <td class="item-price-cell" data-jpy="{last_receipt_total}" style="color: var(--accent); font-size: 1.15rem; text-align: right;"><strong>¥{last_receipt_total:,.0f}</strong></td>
+                <td></td>
+            </tr>
+            """
+
+            if received_amount > 0:
+                receipt_items_html += f"""
+                <tr style="font-style: italic; color: var(--text-muted);">
+                    <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem;">Cash Received</td>
+                    <td></td>
+                    <td class="item-price-cell" data-jpy="{received_amount}" style="text-align: right;"><strong>¥{received_amount:,.0f}</strong></td>
+                    <td></td>
+                </tr>
+                """
+
+            if change_amount > 0:
+                receipt_items_html += f"""
+                <tr style="font-style: italic; color: var(--text-muted);">
+                    <td colspan="4" style="text-align: right; padding: 6px 12px; font-size: 0.9rem;">Change Returned</td>
+                    <td></td>
+                    <td class="item-price-cell" data-jpy="{change_amount}" style="text-align: right;"><strong>¥{change_amount:,.0f}</strong></td>
                     <td></td>
                 </tr>
                 """
@@ -769,7 +859,6 @@ def generate_html_dashboard() -> bool:
                                 <div class="receipt-summary">
                                     <div class="meta-item"><span class="label">Store Location</span><span class="value">{last_receipt_store}</span></div>
                                     <div class="meta-item"><span class="label">Transaction Date</span><span class="value">{last_receipt_date}</span></div>
-                                    <div class="meta-item"><span class="label">Tax ({last_receipt_tax_type.capitalize()})</span><span id="latest-tax-amount" class="value" data-jpy="{last_receipt_tax}">¥{last_receipt_tax:,.0f}</span></div>
                                     <div id="latest-total-amount" class="total-amount" data-jpy="{last_receipt_total}">Invoice Total: ¥{last_receipt_total:,.0f}</div>
                                 </div>
                             </div>
@@ -778,7 +867,7 @@ def generate_html_dashboard() -> bool:
                                 <div style="overflow-x: auto;">
                                     <table>
                                         <thead>
-                                            <tr><th>Japanese Raw OCR</th><th>Translation / Context</th><th>Category</th><th>Price</th><th style="text-align: center;">Quantity</th><th>Action</th></tr>
+                                            <tr><th>Japanese Raw OCR</th><th>Translation / Context</th><th>Category</th><th>Unit Price</th><th style="text-align: center;">Qty</th><th style="text-align: right;">Total</th><th>Action</th></tr>
                                         </thead>
                                         <tbody>
                                             {receipt_items_html}
@@ -889,10 +978,20 @@ def generate_html_dashboard() -> bool:
                         const jpyVal = parseFloat(latestTotalEl.getAttribute('data-jpy')) || 0;
                         latestTotalEl.textContent = 'Invoice Total: ' + formatPrice(jpyVal);
                     }}
+                    const latestSubtotalEl = document.getElementById('latest-subtotal-amount');
+                    if (latestSubtotalEl) {{
+                        const jpyVal = parseFloat(latestSubtotalEl.getAttribute('data-jpy')) || 0;
+                        latestSubtotalEl.textContent = formatPrice(jpyVal);
+                    }}
                     const latestTaxEl = document.getElementById('latest-tax-amount');
                     if (latestTaxEl) {{
                         const jpyVal = parseFloat(latestTaxEl.getAttribute('data-jpy')) || 0;
                         latestTaxEl.textContent = formatPrice(jpyVal);
+                    }}
+                    const latestServiceEl = document.getElementById('latest-service-charge');
+                    if (latestServiceEl) {{
+                        const jpyVal = parseFloat(latestServiceEl.getAttribute('data-jpy')) || 0;
+                        latestServiceEl.textContent = formatPrice(jpyVal);
                     }}
                     document.querySelectorAll('.item-price-cell').forEach(cell => {{
                         const jpyVal = parseFloat(cell.getAttribute('data-jpy')) || 0;
@@ -1114,7 +1213,7 @@ def generate_html_dashboard() -> bool:
                         const qty = parseFloat(r.quantity) || 1;
                         const totalItemPrice = price * qty;
                         const recKey = (r.date || '') + ' - ' + (r.store_name || '');
-                        uniqueReceiptSet = uniqueReceiptsSet.add(recKey);
+                        uniqueReceiptsSet.add(recKey);
 
                         if (!uniqueReceiptsData[recKey]) {{
                             uniqueReceiptsData[recKey] = {{
@@ -1249,6 +1348,7 @@ def generate_html_dashboard() -> bool:
                         adviceText.innerHTML = adviceMsg;
                     }}
 
+
                     // Populate Transaction History table
                     const transactionHistoryBody = document.getElementById('transaction-history-body');
                     transactionHistoryBody.innerHTML = '';
@@ -1257,11 +1357,26 @@ def generate_html_dashboard() -> bool:
                         transactionHistoryBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No transactions recorded for this period.</td></tr>';
                     }} else {{
                         const receiptTotalsMap = {{}};
+                        const receiptTaxMap = {{}};
+                        const receiptTaxTypeMap = {{}};
+                        
                         filteredRecords.forEach(r => {{
                             const recKey = (r.date || '') + ' ||| ' + (r.store_name || '');
                             const price = parseFloat(r.price) || 0;
                             const qty = parseFloat(r.quantity) || 1;
                             receiptTotalsMap[recKey] = (receiptTotalsMap[recKey] || 0) + (price * qty);
+                            
+                            if (r.tax_type === 'excluded') {{
+                                receiptTaxMap[recKey] = parseFloat(r.tax_amount) || 0;
+                                receiptTaxTypeMap[recKey] = 'excluded';
+                            }}
+                        }});
+
+                        // Add excluded tax to the dynamic totals
+                        Object.keys(receiptTotalsMap).forEach(key => {{
+                            if (receiptTaxTypeMap[key] === 'excluded') {{
+                                receiptTotalsMap[key] += (receiptTaxMap[key] || 0);
+                            }}
                         }});
 
                         const sortedReceiptKeys = Object.keys(receiptTotalsMap).sort((a, b) => {{
@@ -1356,10 +1471,20 @@ def generate_html_dashboard() -> bool:
                     const jpyVal = parseFloat(latestTotalEl.getAttribute('data-jpy')) || 0;
                     latestTotalEl.textContent = 'Invoice Total: ' + formatPrice(jpyVal);
                 }}
+                const latestSubtotalEl = document.getElementById('latest-subtotal-amount');
+                if (latestSubtotalEl) {{
+                    const jpyVal = parseFloat(latestSubtotalEl.getAttribute('data-jpy')) || 0;
+                    latestSubtotalEl.textContent = formatPrice(jpyVal);
+                }}
                 const latestTaxEl = document.getElementById('latest-tax-amount');
                 if (latestTaxEl) {{
                     const jpyVal = parseFloat(latestTaxEl.getAttribute('data-jpy')) || 0;
                     latestTaxEl.textContent = formatPrice(jpyVal);
+                }}
+                const latestServiceEl = document.getElementById('latest-service-charge');
+                if (latestServiceEl) {{
+                    const jpyVal = parseFloat(latestServiceEl.getAttribute('data-jpy')) || 0;
+                    latestServiceEl.textContent = formatPrice(jpyVal);
                 }}
                 document.querySelectorAll('.item-price-cell').forEach(cell => {{
                     const jpyVal = parseFloat(cell.getAttribute('data-jpy')) || 0;
