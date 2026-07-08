@@ -526,6 +526,11 @@ def generate_html_dashboard() -> bool:
                     jp_name = (r.get("japanese_name") or "").lower()
                     category = (r.get("category") or "").lower()
                     
+                    # Detect discounts / cashless refunds (check first to prevent "cashless" from matching "cash" below)
+                    if "discount" in eng_name or "refund" in eng_name or "還元" in jp_name or "値引" in jp_name or category == "discount":
+                        discount_amount = float(safe_int(r.get("price")))
+                        continue
+
                     # Detect cash received lines
                     if "received" in eng_name or "cash" in eng_name or "お預" in jp_name or "預り" in jp_name or "預かり" in jp_name:
                         received_amount = float(safe_int(r.get("price")))
@@ -534,11 +539,6 @@ def generate_html_dashboard() -> bool:
                     # Detect change lines
                     if "change" in eng_name or "お釣" in jp_name or "お釣り" in jp_name or category == "change":
                         change_amount = float(safe_int(r.get("price")))
-                        continue
-
-                    # Detect discounts / cashless refunds
-                    if "discount" in eng_name or "refund" in eng_name or "還元" in jp_name or "値引" in jp_name or category == "discount":
-                        discount_amount = float(safe_int(r.get("price")))
                         continue
                         
                     valid_item_rows.append(r)

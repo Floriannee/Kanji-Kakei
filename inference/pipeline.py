@@ -109,7 +109,8 @@ class ReceiptParser:
             for item in response["items"]:
                 eng_name = item.get("english_name", "").lower()
                 jp_name = item.get("japanese_name", "").lower()
-                if "rice ball" in eng_name or "onigiri" in eng_name or "hand roll" in eng_name or "おにぎり" in jp_name or "おむすび" in jp_name or "手巻" in jp_name:
+                if "rice ball" in eng_name or "onigiri" in eng_name or "hand roll" in eng_name or "bread" in eng_name or "pan" in eng_name or "pastry" in eng_name or "croissant" in eng_name or "donut" in eng_name or \
+                   "おにぎり" in jp_name or "おむすび" in jp_name or "手巻" in jp_name or "パン" in jp_name or "ブレッド" in jp_name or "クロワッサン" in jp_name or "ドーナツ" in jp_name:
                     item["category"] = "Snack"
                 elif any(word in eng_name for word in ["bento", "gratin", "doria", "pasta", "spaghetti", "udon", "ramen", "soba", "donburi", "rice bowl", "ready meal"]) or \
                      any(word in jp_name for word in ["弁当", "グラタン", "ドリア", "パスタ", "スパゲティ", "うどん", "ラーメン", "そば", "丼"]):
