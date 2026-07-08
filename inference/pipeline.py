@@ -32,6 +32,7 @@ CRITICAL:
 9. The "tax_type" field must be a string containing either "included" (if the tax is already included in the item prices and subtotal, such as 内消費税) or "excluded" (if the tax is added to the subtotal to form the final total, such as 外税).
 10. Extract the "quantity" field for each item as an integer (default to 1 if no quantity multiplier or package count is explicitly specified next to the product name or price on the receipt).
 11. The "price" field for each item must ALWAYS be the UNIT price (price per single item), NOT the multiplied subtotal. For example, if a receipt lists "2 x 150 = 300", the "price" field must be 150 and the "quantity" must be 2.
+12. If the image is NOT a receipt (e.g. it is a photo of a person, animal, object, landscape, or a non-receipt document), you MUST return a JSON object containing only an "error" key set to "not a receipt" (e.g. {"error": "not a receipt"}).
 
 Return ONLY raw JSON, no markdown, no explanation:
 {
@@ -102,6 +103,10 @@ class ReceiptParser:
             logger.warning("All API providers failed or are unconfigured. Entering TIER 2 (Simulation Mode)...")
             response = self._get_simulated_response()
             logger.info("[Pipeline]  Success via Simulation")
+
+        # Check if the response contains the "error" key indicating not a receipt
+        if response and "error" in response and response["error"] == "not a receipt":
+            raise ValueError("This image does not appear to be a receipt. Please upload a valid receipt image.")
 
         # Post-process response to ensure onigiri / rice balls are categorized as Snack
         # and ready meals / preheated items are categorized as Dining Out

@@ -98,6 +98,14 @@ class TestCoreComponents(unittest.TestCase):
         self.assertEqual(result["tax_amount"], 40)
         self.assertEqual(len(result["items"]), 4)
         self.assertEqual(result["items"][0]["note"], "FamilyMart's signature boneless fried chicken, highly popular among students as a quick hot snack.")
+
+    def test_not_a_receipt_handling(self):
+        parser = ReceiptParser()
+        parser._call_groq_vision_with_retry = lambda *args, **kwargs: {"error": "not a receipt"}
+        img = Image.new('RGB', (100, 100))
+        with self.assertRaises(ValueError) as context:
+            parser.parse_receipt_image(img, allow_simulation=False)
+        self.assertIn("This image does not appear to be a receipt", str(context.exception))
         
 if __name__ == "__main__":
     unittest.main()
