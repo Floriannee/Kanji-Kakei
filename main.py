@@ -1402,9 +1402,9 @@ def generate_html_dashboard() -> bool:
                             const totalVal = receiptTotalsMap[key];
 
                             transactionHistoryBody.innerHTML += `
-                            <tr onclick="viewReceiptDetails('${{date.replace(/'/g, "\\'")}}', '${{store.replace(/'/g, "\\'")}}', '${{imgPath.replace(/\\\\/g, '\\\\').replace(/'/g, "\\'")}}')" style="cursor: pointer;">
+                            <tr onclick="viewReceiptDetails('${{date.replace(/'/g, "\\'")}}', '${{store.replace(/'/g, "\\'")}}', '${{imgPath.replace(/\\\\/g, '\\\\').replace(/'/g, "\\'")}}')">
                                 <td><strong>${{date}}</strong></td>
-                                <td>${{store}}${{imgName ? ` <br><small style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">(${{imgName}})</small>` : ''}}</td>
+                                <td>${{store}}</td>
                                 <td><strong>${{formatPrice(totalVal)}}</strong></td>
                             </tr>
                             `;

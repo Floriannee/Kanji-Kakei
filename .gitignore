@@ -21,3 +21,6 @@ outputs/*.csv
 
 # Local configuration / API keys
 .env
+
+# Uploaded receipts
+receipts/
